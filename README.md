@@ -4,7 +4,7 @@
 
 ![Crusoe](https://img.shields.io/badge/Crusoe-Managed_Inference-0B6E4F)
 ![NVIDIA Nemotron](https://img.shields.io/badge/NVIDIA-Nemotron_3.5_Lightning_%2B_3_Super-76B900?logo=nvidia&logoColor=white)
-![You.com](https://img.shields.io/badge/You.com-web_search_tool-6E44FF)
+![You.com](https://img.shields.io/badge/You.com-search_(needs_key)-6E44FF)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
 
@@ -275,7 +275,9 @@ All model calls go to Crusoe Managed Inference's OpenAI-compatible endpoint (`ht
 
 ## You.com
 
-Search is a structural property, not a default: a stage gets `search: true` in its org file, and the `toggle_search` mutation lets evolution decide which roles benefit from research. Results come from `POST https://ydc-index.io/v1/search` and are passed to the role as references. Without `YDC_API_KEY`, roles simply work without references.
+Search is a structural property, not a default: a stage gets `search: true` in its org file, and the `toggle_search` mutation lets evolution decide which roles benefit from research. Results come from `POST https://ydc-index.io/v1/search` and are passed to the role as references.
+
+**Status, honestly:** the integration is built and tested, but the live runs so far had **no `YDC_API_KEY`, so no search happened in them.** Without a key, Darwin records `search skipped (no You.com key)` and the viewer labels those roles "search off"; it never shows a search that did not run. Each run's `meta.json` records whether search was on.
 
 ---
 
@@ -327,6 +329,7 @@ runs/        outputs (gitignored)
 
 ## Status and honest limits
 
+- You.com search was off in the live runs so far (no key); see [You.com](#youcom).
 - Live results are pending; see [Results](#results). Mock-mode scores are meaningless, never reported, and every run's `meta.json` records whether it was mock or live.
 - Ten small Python tasks are a toy benchmark. Small samples are noisy, so held-out runs use repeated seeds and report spread.
 - Org roles share prompts by design; this isolates structure but means personas carry no extra behavior.

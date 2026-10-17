@@ -271,6 +271,7 @@ function txt(parent, x, y, s, cls, anchor) {
 
 // ------------------------------------------------------------- header
 const live = (D.meta && D.meta.mode) === "live";
+const SEARCH_ON = !!(D.meta && D.meta.search) && live;
 $("mode").textContent = live ? "LIVE · Crusoe + Nemotron" : (D.meta && D.meta.mode === "mock" ? "MOCK DATA · not results" : "run");
 $("mode").className = "badge " + (live ? "live" : "mock");
 $("runid").textContent = D.run || "";
@@ -371,7 +372,7 @@ function chips(s) {
   if ((s.parallel || 1) > 1) c.push(`×${s.parallel}`);
   if (s.kind === "review" && (s.voters || 1) > 1) c.push(`panel ${s.voters} ${s.rule === "unanimous" ? "unan." : "maj."}`);
   if (s.blind) c.push("blind");
-  if (s.search) c.push("search");
+  if (s.search) c.push(SEARCH_ON ? "You.com" : "search off");
   if (s.kind === "review" && s.can_veto === false) c.push("no veto");
   return c.join(" · ");
 }
@@ -629,11 +630,11 @@ const V3 = {
         frame.position.set(0, 2.55, 0.08); grp.add(frame);
         const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 2.2, 6), new THREE.MeshStandardMaterial({color: 0x8a8f96})); pole.position.set(0, 1.4, 0.05);
         if (s.kind !== "implement" && s.kind !== "review") grp.add(pole);
-        if (s.search) { const globe = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22, 1), new THREE.MeshStandardMaterial({color: 0x6e44ff, emissive: 0x6e44ff, emissiveIntensity: .6, wireframe: true}));
+        if (s.search && SEARCH_ON) { const globe = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22, 1), new THREE.MeshStandardMaterial({color: 0x6e44ff, emissive: 0x6e44ff, emissiveIntensity: .6, wireframe: true}));
           globe.position.set(deskW / 2 + 0.2, 2.6, 0.2); grp.add(globe); grp.userData.globe = globe; }
         const sub = [{spec: "definition of done", plan: "direction", implement: "build", select: "pick best", review: "review", verify: "run tests"}[s.kind] || s.kind,
                      (s.parallel || 1) > 1 ? `×${s.parallel} clones` : "", s.kind === "review" && (s.voters || 1) > 1 ? `panel of ${s.voters}` : "",
-                     s.blind ? "blind" : "", s.search ? "You.com" : ""].filter(Boolean).join(" · ");
+                     s.blind ? "blind" : "", s.search ? (SEARCH_ON ? "You.com" : "search off") : ""].filter(Boolean).join(" · ");
         const lb = this.label(s.id, sub); lb.position.set(0, 3.45, 0.1); grp.add(lb);
         scene.add(grp);
         this.stations[`${t.name}::${s.id}`] = {grp, figs, screen: sc.mat, pos: grp.position.clone()};
@@ -831,7 +832,10 @@ function apply(e) {
       tick(`${who}loop detected: resubmitted earlier work`, "bad"); break; }
     case "breaker": tick(`${who}circuit breaker: ${e.why || ""} → ${e.action}`, "bad"); break;
     case "page_human": $("banner").textContent = `⚠ Paged a human: ${e.why || ""}`; $("banner").className = "page"; tick(`${who}PAGED A HUMAN`, "bad"); break;
-    case "search": tick(`${who}${e.role} searched You.com${e.hits ? "" : " (no results)"}`); break;
+    case "search":
+      if (e.ran === false || (e.ran === undefined && !SEARCH_ON)) tick(`${who}${e.role}: search skipped (no You.com key)`);
+      else if (e.ok === false) tick(`${who}${e.role}: You.com search failed`, "bad");
+      else tick(`${who}${e.role} searched You.com: ${e.hits ?? "?"} results`); break;
     case "decision": if (layout.gov) { layout.gov.classList.add("picked");
         layout.gov.vote.textContent = fit(e.votes ? "votes " + Object.entries(e.votes).map(([k, v]) => `${k}:${v}`).join(" ") : `picked ${e.picked}`, 200, 6); }
       tick(`decision by ${e.by}: ${e.picked}`, "hot"); break;

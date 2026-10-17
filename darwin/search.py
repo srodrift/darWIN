@@ -10,6 +10,11 @@ import requests
 URL = "https://ydc-index.io/v1/search"
 
 
+def available() -> bool:
+    """True only when a real You.com search can happen."""
+    return bool(os.environ.get("YDC_API_KEY")) and os.environ.get("DARWIN_MOCK") != "1"
+
+
 def web_search(query: str, count: int = 4) -> str:
     key = os.environ.get("YDC_API_KEY")
     if not key or os.environ.get("DARWIN_MOCK") == "1":

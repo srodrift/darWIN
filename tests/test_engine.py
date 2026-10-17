@@ -218,3 +218,11 @@ def test_router_garbage_falls_back_to_first_team(monkeypatch, tmp_path):
     div = next(o for o in SEEDS if o["name"] == "divisional")
     r = engine.run(div, TASK, engine.EventLog(str(tmp_path / "e.jsonl")))
     assert r["picked_team"] == div["teams"][0]["name"]
+
+
+def test_search_is_never_claimed_without_a_key(monkeypatch, tmp_path):
+    monkeypatch.delenv("YDC_API_KEY", raising=False)
+    hospital = next(o for o in SEEDS if o["name"] == "crusoe_general")  # triage has search: true
+    engine.run(hospital, TASK, engine.EventLog(str(tmp_path / "e.jsonl")))
+    ev = [json.loads(l) for l in open(tmp_path / "e.jsonl") if '"search"' in l]
+    assert ev and all(e["ran"] is False for e in ev)

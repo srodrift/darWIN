@@ -117,8 +117,14 @@ def _run_stage(stage, state, org, emit):
     kind, sid = stage["kind"], stage["id"]
     if stage.get("search") and "references" not in state:
         q = f"{state['task']['issue']} python {state['task']['func']} edge cases specification"
-        state["references"] = search.web_search(q)
-        emit(type="search", role=sid, hits=bool(state["references"]))
+        if search.available():
+            state["references"] = search.web_search(q)
+            failed = state["references"].startswith("(search failed")
+            emit(type="search", role=sid, ran=True, ok=not failed,
+                 hits=0 if failed else state["references"].count("\n- ") + bool(state["references"]))
+        else:  # no key: say so plainly, never pretend a search happened
+            state["references"] = ""
+            emit(type="search", role=sid, ran=False)
 
     if kind == "spec":
         tests = ""
