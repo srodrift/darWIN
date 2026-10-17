@@ -13,7 +13,7 @@
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;overflow:hidden;background:#efece6;color:var(--ink);font-family:var(--sans);font-size:15px}
+html,body{margin:0;height:100%;overflow:hidden;background:#d8cdb8;color:var(--ink);font-family:var(--sans);font-size:15px}
 #stage{position:fixed;inset:0}
 #stage canvas{display:block;width:100%;height:100%;outline:none}
 .glass{background:var(--glass);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);
@@ -605,7 +605,7 @@ function buildPod(name) {
   const root = new THREE.Group(), stations = {};
   const isChamp = name === champion, ghost = n && n.gen > 0 && !n.kept;
   if (isChamp) { const rim = H.slab(L.w + 2.8, L.d + 2.8, 0.18, 0xd9a520, {r: 1.6, metal: .5, rough: .35}); root.add(rim); }
-  const tint = isChamp ? 0xfbf1d6 : !n || n.gen === 0 ? 0xebe4fa : ghost ? 0xe4e2de : 0xe1f1d8;
+  const tint = isChamp ? 0xffe9a8 : !n || n.gen === 0 ? 0xddd0fb : ghost ? 0xeeece8 : 0xc8ecb8;
   const base = H.slab(L.w + 2, L.d + 2, 0.28, tint, {r: 1.4, rough: .9}); root.add(base);
   o.teams.forEach((t, ti) => {
     const first = L.pos(ti, 0), last = L.pos(ti, t.stages.length - 1), mid = first.clone().lerp(last, .5);
@@ -657,14 +657,14 @@ function buildWorld() {
   stage.appendChild(r.domElement); r.domElement.tabIndex = 0;
   const scene = new THREE.Scene();
   { const c = document.createElement("canvas"); c.width = 4; c.height = 256; const g = c.getContext("2d");
-    const gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, "#fbf9f5"); gr.addColorStop(1, "#e6e0d5");
+    const gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, "#f6efe2"); gr.addColorStop(1, "#d8cdb8");
     g.fillStyle = gr; g.fillRect(0, 0, 4, 256); const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace; scene.background = tx; }
-  scene.fog = new THREE.Fog(0xe9e3d8, 420, 1000);
+  scene.fog = new THREE.Fog(0xd8cdb8, 420, 1000);
   scene.add(new THREE.HemisphereLight(0xfffaf2, 0xb8b2a6, 1.35));
   const sun = new THREE.DirectionalLight(0xfff4e6, 2.3); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); sun.shadow.radius = 4;
   sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03; scene.add(sun); scene.add(sun.target);
   const fill = new THREE.DirectionalLight(0xdfe8ff, 0.55); fill.position.set(60, 40, -30); scene.add(fill);
-  const ground = new THREE.Mesh(new THREE.CircleGeometry(600, 64), new THREE.MeshStandardMaterial({color: 0xe7e2d9, roughness: .95}));
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(600, 64), new THREE.MeshStandardMaterial({color: 0xc9c1b2, roughness: .95}));
   ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
   const camera = new THREE.PerspectiveCamera(40, 1, 0.5, 1200);
   Object.assign(W, {scene, renderer: r, camera, sun});
@@ -683,7 +683,8 @@ function buildWorld() {
     const rowD = rows.map(row => Math.max(...row.map(p => p.L.d + 2)));
     const terW = Math.max(...rowW) + 14, terD = rowD.reduce((a, b) => a + b + 9, 0) + 6;
     const y = gi * TER_H, z0 = zCursor;
-    const ter = H.slab(terW, terD, y + 0.35, gi % 2 ? 0xe2dcd1 : 0xe9e4da, {r: 2.2, rough: .9});
+    const TER = [0xe8d9bd, 0xcfe1c7, 0xc9dbea, 0xe2d1ea, 0xf0dcc4];
+    const ter = H.slab(terW, terD, y + 0.35, TER[gi % TER.length], {r: 2.2, rough: .85});
     ter.position.set(0, 0, z0 - terD / 2); ter.castShadow = gi > 0; scene.add(ter);
     const gl = H.label(g === 0 ? "Generation 0" : `Generation ${g}`, g === 0 ? "human org charts" : `${items.filter(n => n.kept).length} kept · ${items.filter(n => !n.kept).length} discarded`);
     gl.scale.set(10, 3.0, 1); gl.position.set(-terW / 2 + 7, y + 2.2, z0 - 2.5); gl.material.depthTest = false; scene.add(gl);
