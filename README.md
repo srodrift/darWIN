@@ -94,17 +94,18 @@ flowchart LR
    ```bash
    python -m pytest tests/test_evolution_demo.py -v -s
    ```
-6. **Run self-evolution live on Crusoe (capped).**
+6. **Stage demo, one keystroke per step:** `./scripts/demo.sh` starts a live mini-evolution on Crusoe in the background, shows an org as code, the champion's diff and the results table, then opens the 3D view of the live run.
+7. **Run self-evolution live on Crusoe (capped).**
    ```bash
    ./scripts/evolve_demo.sh          # quick: startup + hospital, 1 generation, $0.50 cap
    ./scripts/evolve_demo.sh full     # all 5 human orgs, 2 generations, $1 cap
    ```
-7. **See a run.** Builds one offline HTML page from a run folder: the evolution lineage (click any org), the org map drawn from its YAML with an animated replay of a recorded task (handoffs, send-backs, loop detection, human pages, council votes), per-task scores and the held-out exam. The page is Darwin HQ, a full-screen 3D evolution staircase: each generation is a terrace, each org an office pod of original Darwin agent characters, glowing beams link parent to child, the champion gets a halo and the final exam is a podium. A narrated "Tour the story" button walks the whole run (captions always on, spoken narration optional, screen-reader summary, full keyboard control, reduced-motion aware). Inside each pod: builders at desks, spec writers with clipboards, reviewers with magnifiers (blind reviewers wear a blindfold), clones side by side, review panels behind a bench, a council around a round table, a skunkworks behind glass, work flying between them as glowing documents and back in red when rejected. three.js is embedded, so it stays fully offline. No network, no model calls.
+8. **See a run.** Builds one offline HTML page from a run folder: the evolution lineage (click any org), the org map drawn from its YAML with an animated replay of a recorded task (handoffs, send-backs, loop detection, human pages, council votes), per-task scores and the held-out exam. The page is Darwin HQ, a full-screen 3D evolution staircase: each generation is a terrace, each org an office pod of original Darwin agent characters, glowing beams link parent to child, the champion gets a halo and the final exam is a podium. A narrated "Tour the story" button walks the whole run (captions always on, spoken narration optional, screen-reader summary, full keyboard control, reduced-motion aware). Inside each pod: builders at desks, spec writers with clipboards, reviewers with magnifiers (blind reviewers wear a blindfold), clones side by side, review panels behind a bench, a council around a round table, a skunkworks behind glass, work flying between them as glowing documents and back in red when rejected. three.js is embedded, so it stays fully offline. No network, no model calls.
    ```bash
    python run.py viewer              # latest run
    open runs/<id>/viewer.html
    ```
-8. **Run the whole test suite (offline, about a minute).**
+9. **Run the whole test suite (offline, about a minute).**
    ```bash
    python -m pytest tests -q
    ```
