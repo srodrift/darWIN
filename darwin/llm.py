@@ -21,16 +21,34 @@ import time
 BASE_URL = "https://api.inference.crusoecloud.com/v1"
 
 # Confirm exact IDs with: GET /v1/models
-WORKER_MODEL = os.environ.get("DARWIN_WORKER_MODEL", "nvidia/nemotron-3.5-lightning-30b-a3b")
-META_MODEL = os.environ.get("DARWIN_META_MODEL", "nvidia/Nemotron-3-Super-120B-A12B")
+WORKER_MODEL = os.environ.get("DARWIN_WORKER_MODEL", "nvidia/Nemotron-3.5-Lightning-30B-A3B")
+META_MODEL = os.environ.get("DARWIN_META_MODEL", "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B")
 
 # USD per 1M tokens (input, output), from Crusoe's hackathon guide. Verify in console.
+# Keys are lowercase with the "nvidia-" prefix stripped, so ID spelling variants
+# ("nvidia/NVIDIA-Nemotron-3-Super-..." vs "nvidia/Nemotron-3-Super-...") match.
 PRICES = {
     "nvidia/nemotron-3.5-lightning-30b-a3b": (0.05, 0.20),
-    "nvidia/Nemotron-3-Nano-30B-A3B": (0.05, 0.20),
-    "nvidia/Nemotron-3-Super-120B-A12B": (0.30, 2.40),
+    "nvidia/nemotron-3-nano-30b-a3b": (0.05, 0.20),
+    "nvidia/nemotron-3-super-120b-a12b": (0.30, 2.40),
 }
-DEFAULT_PRICE = (0.30, 2.40)
+DEFAULT_PRICE = (0.30, 2.40)  # unknown model: assume the pricier rate, never under-count
+
+
+def model_key(model_id):
+    return (model_id or "").lower().replace("/nvidia-", "/")
+
+
+def resolve_model(wanted, available):
+    """Return the exact ID from `available` matching `wanted`, ignoring case and
+    an optional 'NVIDIA-' prefix; None if nothing matches."""
+    if wanted in available:
+        return wanted
+    k = model_key(wanted)
+    for a in available:
+        if model_key(a) == k:
+            return a
+    return None
 
 
 class BudgetExceeded(RuntimeError):
@@ -43,6 +61,7 @@ class FatalAPIError(RuntimeError):
 
 
 _NO_TEMPLATE_KWARGS = set()
+_RESOLVE_TRIED = set()
 # Multi-team orgs fan out (teams x clones x council voters x parallel tasks);
 # cap simultaneous requests so we stay under Crusoe's per-minute limits.
 _SLOTS = threading.BoundedSemaphore(int(os.environ.get("DARWIN_MAX_CONCURRENCY", "12")))
@@ -80,7 +99,7 @@ class Ledger:
         self._lock = threading.Lock()
 
     def add(self, model, tin, tout):
-        pin, pout = PRICES.get(model, DEFAULT_PRICE)
+        pin, pout = PRICES.get(model_key(model), DEFAULT_PRICE)
         cost = (tin * pin + tout * pout) / 1e6
         with self._lock:
             self.spent += cost
@@ -186,6 +205,17 @@ def chat(messages, model=None, max_tokens=2048, temperature=0.6):
         except (openai.AuthenticationError, openai.PermissionDeniedError) as e:
             raise FatalAPIError(f"Crusoe rejected the API key: {e}") from e
         except openai.NotFoundError as e:
+            fixed = None
+            if model not in _RESOLVE_TRIED:
+                _RESOLVE_TRIED.add(model)
+                try:
+                    fixed = resolve_model(model, [m.id for m in client.models.list().data])
+                except Exception:
+                    fixed = None
+            if fixed and fixed != model:
+                print(f"  (model '{model}' not found; using Crusoe's exact ID '{fixed}')")
+                model = fixed
+                continue
             raise FatalAPIError(f"Model '{model}' not found on Crusoe. Run `python run.py check` "
                                 f"and set DARWIN_WORKER_MODEL / DARWIN_META_MODEL. ({e})") from e
         except openai.BadRequestError as e:

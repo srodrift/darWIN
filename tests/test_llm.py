@@ -25,9 +25,11 @@ class FakeResp:
 
 
 class FakeClient:
-    def __init__(self, behaviors):
+    def __init__(self, behaviors, model_ids=()):
         self.behaviors, self.calls = list(behaviors), []
         outer = self
+        ids = [type("Mdl", (), {"id": i})() for i in model_ids]
+        self.models = type("Models", (), {"list": lambda self: type("L", (), {"data": ids})()})()
 
         class _Comp:
             def create(self, **kw):
@@ -45,8 +47,10 @@ def live(monkeypatch):
     monkeypatch.setattr(llm.time, "sleep", lambda s: None)
     llm._NO_TEMPLATE_KWARGS.clear()
 
-    def install(behaviors):
-        fake = FakeClient(behaviors)
+    llm._RESOLVE_TRIED.clear()
+
+    def install(behaviors, model_ids=()):
+        fake = FakeClient(behaviors, model_ids)
         monkeypatch.setattr(llm, "_client", fake)
         return fake
     return install
@@ -109,3 +113,25 @@ def test_meta_model_missing_falls_back_to_worker(monkeypatch):
     card = {"score": 0.5, "solved": 1, "runs": 2, "cost_usd": 0.0, "escalations": 0, "failures": []}
     child, mut = evolve.meta_mutation(o, card, [])
     assert calls == ["meta-x", "worker-y"] and mut["source"] == "meta-agent" and child["shared_memory"]
+
+
+def test_resolve_model_variants():
+    avail = ["nvidia/Nemotron-3.5-Lightning-30B-A3B", "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B"]
+    assert llm.resolve_model("nvidia/nemotron-3.5-lightning-30b-a3b", avail) == avail[0]
+    assert llm.resolve_model("nvidia/Nemotron-3-Super-120B-A12B", avail) == avail[1]
+    assert llm.resolve_model("nvidia/NVIDIA-Nemotron-3-Super-120B-A12B", avail) == avail[1]
+    assert llm.resolve_model("nvidia/other", avail) is None
+
+
+def test_price_lookup_ignores_spelling():
+    led = llm.Ledger(100)
+    a = led.add("nvidia/NVIDIA-Nemotron-3-Super-120B-A12B", 1_000_000, 0)
+    b = led.add("nvidia/Nemotron-3.5-Lightning-30B-A3B", 1_000_000, 0)
+    assert a == pytest.approx(0.30) and b == pytest.approx(0.05)
+
+
+def test_not_found_auto_resolves_once(live):
+    fake = live([_err(openai.NotFoundError, 404), "ok"],
+                model_ids=["nvidia/Nemotron-3.5-Lightning-30B-A3B"])
+    text, _ = llm.chat([{"role": "user", "content": "hi"}], model="nvidia/nemotron-3.5-lightning-30b-a3b")
+    assert text == "ok" and fake.calls[1]["model"] == "nvidia/Nemotron-3.5-Lightning-30B-A3B"

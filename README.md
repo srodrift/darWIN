@@ -231,8 +231,8 @@ All model calls go to Crusoe Managed Inference's OpenAI-compatible endpoint (`ht
 
 | Role | Model | Why |
 |---|---|---|
-| Every org role | `nvidia/nemotron-3.5-lightning-30b-a3b` | Built for long-running agents and sub-agents; cheap enough to run many orgs × tasks × generations |
-| Meta-agent | `nvidia/Nemotron-3-Super-120B-A12B` | Stronger reasoning for redesigning the org |
+| Every org role | `nvidia/Nemotron-3.5-Lightning-30B-A3B` | Built for long-running agents and sub-agents; cheap enough to run many orgs × tasks × generations |
+| Meta-agent | `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B` | Stronger reasoning for redesigning the org |
 
 <details>
 <summary><b>Failure handling</b></summary>

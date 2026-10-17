@@ -101,10 +101,18 @@ def cmd_check(a):
     nemo = [i for i in ids if "nemotron" in i.lower()]
     print("Nemotron models on your Crusoe project:\n  " + "\n  ".join(nemo or ["(none found)"]))
     ok = True
-    for role, model in (("worker", llm.WORKER_MODEL), ("meta", llm.META_MODEL)):
-        found = model in ids
-        ok &= found
-        print(f"{role} model {model}: {'OK' if found else 'NOT FOUND -> export DARWIN_' + role.upper() + '_MODEL=<id from the list>'}")
+    for role in ("worker", "meta"):
+        model = getattr(llm, f"{role.upper()}_MODEL")
+        exact = llm.resolve_model(model, ids)
+        if exact and exact != model:
+            setattr(llm, f"{role.upper()}_MODEL", exact)
+            print(f"{role} model {model}: OK, using exact ID {exact} "
+                  f"(set DARWIN_{role.upper()}_MODEL={exact} in .env)")
+        elif exact:
+            print(f"{role} model {model}: OK")
+        else:
+            ok = False
+            print(f"{role} model {model}: NOT FOUND -> set DARWIN_{role.upper()}_MODEL=<id from the list> in .env")
     if ok:
         for model in (llm.WORKER_MODEL, llm.META_MODEL):
             try:
