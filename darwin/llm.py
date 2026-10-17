@@ -1,10 +1,15 @@
 """Nemotron on Crusoe Managed Inference (OpenAI-compatible), with a cost
 ledger, a hard budget cap, retries, and an offline mock mode.
 
-Env:
-  CRUSOE_API_KEY     your Crusoe key (never commit it)
-  DARWIN_MOCK=1    run offline with a fake model (for plumbing tests)
-  DARWIN_BUDGET    max USD this process may spend (default 5.00)
+Env (or put them in the repo's gitignored .env file):
+  CRUSOE_API_KEY        your Crusoe key (never commit it)
+  DARWIN_MOCK=1         run offline with a fake model (for plumbing tests)
+  DARWIN_BUDGET         max USD this run may spend (default 5.00)
+  DARWIN_TOTAL_BUDGET   max USD all runs together may spend (default 20.00),
+                        tracked in runs/.spend.json
+
+Costs are estimated locally from token counts and the price table below;
+the Crusoe console is the source of truth for what you were billed.
 """
 import json
 import os
@@ -43,15 +48,35 @@ _NO_TEMPLATE_KWARGS = set()
 _SLOTS = threading.BoundedSemaphore(int(os.environ.get("DARWIN_MAX_CONCURRENCY", "12")))
 
 
-class Ledger:
-    """Thread-safe running total of tokens and dollars."""
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SPEND_FILE = os.environ.get("DARWIN_SPEND_FILE", os.path.join(_REPO, "runs", ".spend.json"))
 
-    def __init__(self, budget_usd: float):
+
+def read_lifetime(path=None):
+    path = path or SPEND_FILE
+    try:
+        with open(path) as f:
+            return float(json.load(f).get("total_usd", 0.0))
+    except (OSError, ValueError):
+        return 0.0
+
+
+class Ledger:
+    """Thread-safe running total of tokens and dollars, with two caps:
+    `budget` for this process and `total_budget` for all runs ever, kept in
+    runs/.spend.json so separate runs can't add up past your credits."""
+
+    def __init__(self, budget_usd, total_budget_usd=None, persist=False, path=None):
         self.budget = budget_usd
+        self.total_budget = total_budget_usd
+        self.persist = persist
+        self.path = path or SPEND_FILE
         self.spent = 0.0
         self.tokens_in = 0
         self.tokens_out = 0
         self.calls = 0
+        self._flushed = 0.0
+        self._lifetime_seen = read_lifetime(self.path) if persist else 0.0
         self._lock = threading.Lock()
 
     def add(self, model, tin, tout):
@@ -62,15 +87,57 @@ class Ledger:
             self.tokens_in += tin
             self.tokens_out += tout
             self.calls += 1
+            due = self.persist and (self.calls % 10 == 0 or self.spent - self._flushed > 0.05)
+        if due:
+            self.flush()
         return cost
+
+    def lifetime(self):
+        return self._lifetime_seen + (self.spent - self._flushed)
+
+    def flush(self):
+        """Add this process's unsaved spend to the lifetime file (locked, atomic)."""
+        if not self.persist:
+            return
+        with self._lock:
+            delta = self.spent - self._flushed
+            if delta <= 0:
+                return
+            os.makedirs(os.path.dirname(self.path), exist_ok=True)
+            lock_path = self.path + ".lock"
+            with open(lock_path, "a") as lf:
+                try:
+                    import fcntl
+                    fcntl.flock(lf, fcntl.LOCK_EX)
+                except (ImportError, OSError):
+                    pass  # no file locking on this platform; single-run use is still safe
+                total = read_lifetime(self.path) + delta
+                tmp = self.path + ".tmp"
+                with open(tmp, "w") as f:
+                    json.dump({"total_usd": round(total, 6),
+                               "updated": time.strftime("%Y-%m-%d %H:%M:%S")}, f)
+                os.replace(tmp, self.path)
+            self._flushed = self.spent
+            self._lifetime_seen = total
 
     def check(self):
         if self.spent >= self.budget:
-            raise BudgetExceeded(f"budget ${self.budget:.2f} reached (spent ${self.spent:.2f})")
+            raise BudgetExceeded(f"run budget ${self.budget:.2f} reached (spent ${self.spent:.4f})")
+        if self.total_budget is not None and self.lifetime() >= self.total_budget:
+            self.flush()
+            raise BudgetExceeded(f"lifetime budget ${self.total_budget:.2f} reached "
+                                 f"(all runs: ${self.lifetime():.4f}); raise DARWIN_TOTAL_BUDGET "
+                                 f"or check your Crusoe console")
 
 
-LEDGER = Ledger(float(os.environ.get("DARWIN_BUDGET", "5.00")))
 MOCK = os.environ.get("DARWIN_MOCK") == "1"
+LEDGER = Ledger(float(os.environ.get("DARWIN_BUDGET", "5.00")),
+                total_budget_usd=float(os.environ.get("DARWIN_TOTAL_BUDGET", "20.00")),
+                persist=not MOCK)  # mock spend is fake and never counts
+
+import atexit  # noqa: E402
+
+atexit.register(LEDGER.flush)
 
 _client = None
 
@@ -81,7 +148,8 @@ def _get_client():
         from openai import OpenAI
         key = os.environ.get("CRUSOE_API_KEY")
         if not key:
-            raise RuntimeError("Set CRUSOE_API_KEY, or DARWIN_MOCK=1 to run offline.")
+            raise FatalAPIError("No CRUSOE_API_KEY. Put `CRUSOE_API_KEY=...` in the repo's .env "
+                                "file (it is gitignored), or set DARWIN_MOCK=1 to run offline.")
         _client = OpenAI(base_url=BASE_URL, api_key=key, timeout=120)
     return _client
 

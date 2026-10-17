@@ -2,6 +2,7 @@
 """Darwin Inc.: human org charts are generation zero.
 
   python run.py check                                  # Crusoe key + Nemotron models OK?
+  python run.py spend                                  # estimated credits used, caps left
   python run.py once --org hospital --task median      # one org, one task, verbose
   python run.py compare --split train                  # the three human orgs, head to head
   python run.py evolve --generations 3 --children 2    # walk away: evolve past them
@@ -40,7 +41,16 @@ def seed_orgs(pattern="orgs/*.yaml"):
     return orgs
 
 
+def budget_banner():
+    if llm.MOCK:
+        print("MOCK MODE: fake model, no credits used, scores are meaningless.\n")
+        return
+    print(f"budget: this run ${llm.LEDGER.budget:.2f} | all runs so far ${llm.LEDGER.lifetime():.4f} "
+          f"of ${llm.LEDGER.total_budget:.2f} lifetime cap (estimates; Crusoe console is the truth)\n")
+
+
 def new_run_dir(tag, args=None):
+    budget_banner()
     d = os.path.join(ROOT, "runs", time.strftime("%Y%m%d-%H%M%S") + "_" + tag)
     os.makedirs(os.path.join(d, "orgs"), exist_ok=True)
     os.makedirs(os.path.join(d, "cards"), exist_ok=True)
@@ -104,6 +114,17 @@ def cmd_check(a):
             except Exception as e:
                 print(f"test call {model} FAILED: {e}")
     print("You.com key:", "set" if os.environ.get("YDC_API_KEY") else "not set (search disabled)")
+
+
+def cmd_spend(a):
+    """Show estimated spend across all runs and the caps that protect your credits."""
+    total = llm.read_lifetime()
+    print(f"estimated spend, all live runs: ${total:.4f}")
+    print(f"lifetime cap (DARWIN_TOTAL_BUDGET): ${llm.LEDGER.total_budget:.2f}  "
+          f"-> ${max(0.0, llm.LEDGER.total_budget - total):.4f} left")
+    print(f"per-run cap (DARWIN_BUDGET): ${llm.LEDGER.budget:.2f}")
+    print(f"ledger file: {llm.SPEND_FILE}")
+    print("These are local estimates from token counts; check the Crusoe console for actual billing.")
 
 
 def cmd_once(a):
@@ -273,6 +294,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("check")
+    sub.add_parser("spend")
     s = sub.add_parser("once")
     s.add_argument("--org", default="hospital")
     s.add_argument("--task", default="median")
@@ -291,7 +313,7 @@ def main():
     s.add_argument("--resume", help="continue from a previous runs/<id> directory")
     a = p.parse_args()
     try:
-        {"check": cmd_check, "once": cmd_once, "compare": cmd_compare, "evolve": cmd_evolve}[a.cmd](a)
+        {"check": cmd_check, "spend": cmd_spend, "once": cmd_once, "compare": cmd_compare, "evolve": cmd_evolve}[a.cmd](a)
     except llm.FatalAPIError as e:
         sys.exit(f"\nSTOPPED: {e}\nEverything finished so far is saved under runs/. "
                  f"For evolve, fix the problem and continue with --resume runs/<id>.")

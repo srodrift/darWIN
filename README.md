@@ -72,11 +72,13 @@ flowchart LR
    pip install -r requirements.txt
    DARWIN_MOCK=1 python run.py evolve --generations 1 --children 1
    ```
-2. **Check your Crusoe key and models.**
+2. **Add your key and check it.** The key goes in `.env`, which git ignores, so it can never be committed.
    ```bash
-   export CRUSOE_API_KEY=...   # never commit it
-   python run.py check
+   cp .env.example .env        # then paste your key after CRUSOE_API_KEY=
+   python run.py check         # key works? Nemotron models found?
+   python run.py spend         # estimated credits used and caps left
    ```
+   Two caps protect your credits: `DARWIN_BUDGET` stops a single run, and `DARWIN_TOTAL_BUDGET` stops all runs combined (tracked in `runs/.spend.json`). Spend is estimated from token counts; the Crusoe console shows what was actually billed.
 3. **Watch one org work one task.**
    ```bash
    python run.py once --org hospital --task median
@@ -270,7 +272,7 @@ tasks/       train/ and heldout/: issue.md, starter.py, hidden_test.py
 reference/   reference solutions (only to validate hidden tests)
 darwin/      engine, org schema, evolution, scoring, Crusoe client, You.com search, sandbox
 run.py       CLI: check, once, compare, evolve (--resume)
-tests/       241 offline tests: benchmark soundness, sandbox, orgs, every mutation on every org, governance, engine, live-client failures, CLI
+tests/       247 offline tests: benchmark soundness, sandbox, orgs, every mutation on every org, governance, engine, live-client failures, CLI
 runs/        outputs (gitignored)
 ```
 
@@ -282,7 +284,8 @@ runs/        outputs (gitignored)
 |---|---|---|
 | `CRUSOE_API_KEY` | yes (live runs) | Crusoe Managed Inference |
 | `YDC_API_KEY` | no | You.com search for roles with `search: true` |
-| `DARWIN_BUDGET` | no (default 5) | Hard spend cap in USD per process |
+| `DARWIN_BUDGET` | no (default 5) | Hard spend cap in USD for one run |
+| `DARWIN_TOTAL_BUDGET` | no (default 20) | Hard spend cap in USD across all runs, kept in `runs/.spend.json` |
 | `DARWIN_WORKER_MODEL` | no | Override the worker model ID |
 | `DARWIN_META_MODEL` | no | Override the meta-agent model ID |
 | `DARWIN_MOCK` | no | `1` runs offline with a fake model |
