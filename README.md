@@ -289,7 +289,7 @@ prompts/     frozen prompts, one per kind of work
 tasks/       train/ and heldout/: issue.md, starter.py, hidden_test.py
 reference/   reference solutions (only to validate hidden tests)
 darwin/      engine, org schema, viewer (vendor/: three.js, MIT), evolution, scoring, Crusoe client, You.com search, sandbox
-run.py       CLI: check, spend, once, compare, evolve (--resume), viewer
+run.py       CLI: check, spend, once, compare, evolve (--resume), report, viewer
 scripts/     smoke.sh (first live check), evolve_demo.sh (live evolution, capped)
 tests/       259 offline tests, including tests/test_evolution_demo.py (narrated self-evolution): benchmark soundness, sandbox, orgs, every mutation on every org, governance, engine, live-client failures, CLI
 runs/        outputs (gitignored)

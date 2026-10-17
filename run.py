@@ -132,6 +132,36 @@ def cmd_spend(a):
     print("These are local estimates from token counts; check the Crusoe console for actual billing.")
 
 
+def cmd_report(a):
+    """Print a finished run's results as a markdown table (for README, slides, Q&A)."""
+    run_dir = a.run_dir or sorted(d for d in glob.glob(os.path.join(ROOT, "runs", "*_evolve"))
+                                  if os.path.exists(os.path.join(d, "lineage.json")))[-1]
+    meta = json.load(open(os.path.join(run_dir, "meta.json")))
+    lineage = json.load(open(os.path.join(run_dir, "lineage.json")))
+    final_path = os.path.join(run_dir, "final.json")
+    final = json.load(open(final_path)) if os.path.exists(final_path) else {}
+    cards = {}
+    for p in glob.glob(os.path.join(run_dir, "cards", "*.json")):
+        c = json.load(open(p)); cards[c["org"]] = c
+    print(f"Run `{os.path.basename(run_dir)}` ({meta.get('mode')}, worker {meta.get('worker_model')}, "
+          f"meta {meta.get('meta_model')}, You.com {'on' if meta.get('search') else 'off'})\n")
+    print("| Gen | Org | Change | Train score (spread) | Cost | Verdict |\n|---|---|---|---|---|---|")
+    for n in lineage:
+        c = cards.get(n["name"], {})
+        spread = f" (±{c['seed_spread']:.3f}, seeds {c['seed_means']})" if c.get("seeds", 1) > 1 else ""
+        mut = n["mutation"]["op"] if n.get("mutation") else "human seed"
+        verdict = "seed" if n["gen"] == 0 else ("KEPT" if n["kept"] else "discarded")
+        print(f"| {n['gen']} | {n['name']} | {mut} | {n['score']:.3f}{spread} | ${n['cost_usd']:.4f} | {verdict} |")
+    if final.get("heldout"):
+        print(f"\nHeld-out exam (never used for selection): best human `{final['best_human']}`, champion `{final['champion']}`\n")
+        print("| Org | Held-out score (spread over seeds) | Solved | Cost |\n|---|---|---|---|")
+        for c in final["heldout"]:
+            sp = f" (±{c['seed_spread']:.3f}, seeds {c['seed_means']})" if c.get("seeds", 1) > 1 else ""
+            print(f"| {c['org']} | {c['score']:.3f}{sp} | {c['solved']}/{c['runs']} | ${c['cost_usd']:.4f} |")
+    else:
+        print("\n(no held-out exam yet: the run is still going or was stopped early)")
+
+
 def cmd_viewer(a):
     """Write runs/<id>/viewer.html: lineage, org map with replay, held-out exam."""
     from darwin import viewer
@@ -206,6 +236,8 @@ def main():
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("check")
     sub.add_parser("spend")
+    s = sub.add_parser("report")
+    s.add_argument("run_dir", nargs="?", help="a runs/<id> directory (default: the latest evolve run)")
     s = sub.add_parser("viewer")
     s.add_argument("run_dir", nargs="?", help="a runs/<id> directory (default: the latest run)")
     s = sub.add_parser("once")
@@ -226,7 +258,7 @@ def main():
     s.add_argument("--resume", help="continue from a previous runs/<id> directory")
     a = p.parse_args()
     try:
-        {"check": cmd_check, "spend": cmd_spend, "viewer": cmd_viewer, "once": cmd_once, "compare": cmd_compare, "evolve": cmd_evolve}[a.cmd](a)
+        {"check": cmd_check, "spend": cmd_spend, "report": cmd_report, "viewer": cmd_viewer, "once": cmd_once, "compare": cmd_compare, "evolve": cmd_evolve}[a.cmd](a)
     except llm.FatalAPIError as e:
         sys.exit(f"\nSTOPPED: {e}\nEverything finished so far is saved under runs/. "
                  f"For evolve, fix the problem and continue with --resume runs/<id>.")
