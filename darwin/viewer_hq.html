@@ -6,7 +6,7 @@
 <title>Darwin Inc. HQ</title>
 <style>
 :root{
-  --ink:#15181c; --muted:#5f656d; --glass:rgba(255,255,255,.82); --glass-b:rgba(21,24,28,.08);
+  --ink:#15181c; --muted:#5f656d; --glass:rgba(255,255,255,.96); --glass-b:rgba(21,24,28,.08);
   --green:#2f8a2a; --green-s:#e3f2da; --violet:#6b46c1; --violet-s:#efe8fb; --red:#c2410c; --red-s:#fde8dc;
   --gold:#b8860b; --blue:#1f5fa8;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
@@ -265,6 +265,7 @@ for (const [btn, box] of [["brandTog", "brand"], ["evoTog", "evo"]]) {
   $(btn).addEventListener("click", () => { const min = $(box).classList.toggle("min");
     $(btn).setAttribute("aria-expanded", !min); $(btn).querySelector("span").textContent = min ? "show" : "hide"; });
 }
+$("evoTog").click();  // start with the evolution list folded: the 3D scene leads
 $("mode").textContent = live ? "LIVE · Crusoe + Nemotron" : (D.meta && D.meta.mode === "mock" ? "MOCK DATA · not results" : "run");
 $("mode").className = "pill " + (live ? "live" : "mock");
 $("searchPill").textContent = SEARCH_ON ? "You.com search on" : "You.com search off";
@@ -534,7 +535,7 @@ function station(s, color) {
   for (let k = 0; k < n; k++) {
     const a = H.agent(color, {blind: !!s.blind, prop: s.kind === "spec" ? "clipboard" : s.kind === "review" ? "magnifier" : null});
     a.position.set((k - (n - 1) / 2) * spread - (["spec", "plan", "verify"].includes(s.kind) ? 0.5 : 0), 0, 0);
-    if (n > 1) a.scale.setScalar(0.88);
+    a.scale.setScalar(n > 1 ? 1.1 : 1.3);
     a.userData.homeX = a.position.x;
     grp.add(a); figs.push(a);
     if (s.kind === "implement") {
@@ -634,7 +635,7 @@ function buildPod(name) {
     o.teams.forEach((t, ti) => { const p = L.router ? L.pos(ti, 0) : L.pos(ti, t.stages.length - 1); floorLine(root, p, L.hub(), 0xb3ab9e); });
   }
   const tag = H.label((isChamp ? "★ " : "") + (n ? displayName(n) : pretty(name)), n ? `train ${fmt(n.score)}${n.gen > 0 ? " · " + (n.kept ? "kept" : "discarded") : " · human"}` : "");
-  tag.scale.set(6.2, 1.85, 1); tag.position.set(0, 6.2, -L.d / 2 + 1); tag.material.depthTest = false; root.add(tag);
+  tag.scale.set(9.3, 2.8, 1); tag.position.set(0, 7.0, -L.d / 2 + 1); tag.material.depthTest = false; root.add(tag);
   if (ghost) root.traverse(m => { if (m.isMesh && m !== base) { m.material = m.material.clone(); m.material.transparent = true; m.material.opacity = 0.32; m.material.depthWrite = false; m.castShadow = false; }
     if (m.isSprite && m !== tag) m.material.opacity = .5; });
   if (ghost) tag.material.opacity = .72;
@@ -687,7 +688,7 @@ function buildWorld() {
     const ter = H.slab(terW, terD, y + 0.35, TER[gi % TER.length], {r: 2.2, rough: .85});
     ter.position.set(0, 0, z0 - terD / 2); ter.castShadow = gi > 0; scene.add(ter);
     const gl = H.label(g === 0 ? "Generation 0" : `Generation ${g}`, g === 0 ? "human org charts" : `${items.filter(n => n.kept).length} kept · ${items.filter(n => !n.kept).length} discarded`);
-    gl.scale.set(10, 3.0, 1); gl.position.set(-terW / 2 + 7, y + 2.2, z0 - 2.5); gl.material.depthTest = false; scene.add(gl);
+    gl.scale.set(15, 4.5, 1); gl.position.set(-terW / 2 + 7, y + 2.2, z0 - 2.5); gl.material.depthTest = false; scene.add(gl);
     let rz = z0 - 7;
     rows.forEach((row, ri) => {
       let x = -rowW[ri] / 2;
