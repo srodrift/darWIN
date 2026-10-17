@@ -2,8 +2,9 @@
 proposes ONE structural mutation. A mutant survives only if it beats its
 parent on the training tasks. Prompts never change, only structure.
 
-Mutation menu (non-human options included: disposable parallel clones,
-blind reviewers, instant shared memory):
+Structure includes the shape of the whole organization, not just one
+pipeline: teams can be spun off, isolated, merged away, and governance can
+move between evidence (tests), a single leader, and a council of peers.
 """
 import copy
 import json
@@ -12,49 +13,84 @@ import re
 
 from . import llm, org as orgmod
 
+MAX_TEAMS = 4
+
 OPS = {
-    "add_review":      "insert a reviewer with veto power after the implement stage",
+    # --- inside one team (give `team`; defaults to the first team)
+    "add_review":       "insert a reviewer with veto power after the team's implement stage",
     "add_blind_review": "insert a BLIND reviewer (sees tests and results, never the code)",
-    "remove_stage":    "remove one non-implement stage (give `stage`)",
-    "toggle_blind":    "flip a reviewer between blind and sighted (give `stage`)",
-    "toggle_veto":     "flip whether a reviewer can send work back (give `stage`)",
-    "set_parallel":    "set how many independent clones attempt the implementation (give `n`: 1, 3 or 5)",
-    "toggle_shared_memory": "turn instant shared memory across all roles on or off",
-    "toggle_search":   "give or take away You.com web search for a stage (give `stage`)",
-    "add_spec":        "add a role that writes the definition of done as tests before any work",
-    "add_verify":      "add a step that runs the team's own tests before shipping",
-    "set_max_rounds":  "change how many send-backs are allowed before the circuit breaker (give `n`: 1-6)",
-    "flip_breaker":    "switch the circuit breaker between escalate-to-human and ship-best-so-far",
+    "set_panel":        "turn a review stage into a panel of `n` voters (1, 3 or 5) with `rule` majority|unanimous (give `stage`)",
+    "remove_stage":     "remove one non-implement stage (give `stage`)",
+    "toggle_blind":     "flip a reviewer between blind and sighted (give `stage`)",
+    "toggle_veto":      "flip whether a reviewer can send work back (give `stage`)",
+    "set_parallel":     "set how many disposable clones attempt the implementation (give `n`: 1, 3 or 5)",
+    "toggle_search":    "give or take away You.com web search for a stage (give `stage`)",
+    "add_spec":         "add a role that writes the definition of done as tests before any work",
+    "add_verify":       "add a step that runs the team's own tests before shipping",
+    # --- the shape of the organization
+    "add_skunkworks":   "spin up a new small ISOLATED team (one implementer with web search) that works in secret",
+    "fork_team":        "clone an existing team (give `team`) as a new isolated team that competes with it",
+    "remove_team":      "dissolve a team (give `team`); at least one team must remain",
+    "toggle_isolated":  "cut a team off from (or reconnect it to) the others' shared findings (give `team`)",
+    "set_governance":   "change how teams are governed: `by` tests|leader|council (teams compete, one answer is chosen) or router (a dispatcher sends each task to ONE team, like divisions); council size `n` (3 or 5)",
+    "toggle_shared_memory": "turn instant shared memory across non-isolated teams on or off",
+    "set_max_rounds":   "change how many send-backs a team gets before the circuit breaker (give `n`: 1-6)",
+    "flip_breaker":     "switch the circuit breaker between escalate-to-human and ship-best-so-far",
 }
 
 
-def _impl_index(o):
-    return next(i for i, s in enumerate(o["stages"]) if s["kind"] == "implement")
+# Which parameters each mutation actually uses (others are dropped from logs).
+PARAMS = {
+    "add_review": ("team",), "add_blind_review": ("team",),
+    "set_panel": ("team", "stage", "n", "rule"), "remove_stage": ("team", "stage"),
+    "toggle_blind": ("team", "stage"), "toggle_veto": ("team", "stage"),
+    "set_parallel": ("team", "n"), "toggle_search": ("team", "stage"),
+    "add_spec": ("team",), "add_verify": ("team",), "add_skunkworks": (),
+    "fork_team": ("team",), "remove_team": ("team",), "toggle_isolated": ("team",),
+    "set_governance": ("by", "n"), "toggle_shared_memory": (), "set_max_rounds": ("n",),
+    "flip_breaker": (),
+}
+assert set(PARAMS) == set(OPS)
 
 
-def _impl_id(o):
-    return o["stages"][_impl_index(o)]["id"]
+def _relevant(op, args):
+    return {k: args[k] for k in PARAMS.get(op, ()) if args.get(k) is not None}
 
 
-def _uid(o, base):
-    ids = {s["id"] for s in o["stages"]}
+def _team(o, name):
+    if name is not None:
+        return next((t for t in o["teams"] if t["name"] == name), None)
+    return o["teams"][0]
+
+
+def _impl_index(st):
+    return next(i for i, s in enumerate(st) if s["kind"] == "implement")
+
+
+def _uid(items, base, key="id"):
+    taken = {x[key] for x in items}
     n, cand = 1, base
-    while cand in ids:
+    while cand in taken:
         n += 1
         cand = f"{base}_{n}"
     return cand
 
 
-def apply(o, op, stage=None, n=None):
+def apply(o, op, team=None, stage=None, n=None, by=None, rule=None):
     """Apply one mutation. Returns the new org, or None if it doesn't apply."""
     o = copy.deepcopy(o)
-    st = o["stages"]
-    ids = [s["id"] for s in st]
+    if team is None and stage is not None:  # infer the team from the stage
+        team = next((t["name"] for t in o["teams"] if any(s["id"] == stage for s in t["stages"])), None)
+    t = _team(o, team)
+    if t is None:
+        return None
+    st = t["stages"]
+    before = json.dumps(o, sort_keys=True)
     named = next((s for s in st if s["id"] == stage), None)
-    ii = _impl_index(o)
+    ii = _impl_index(st)
+    impl_id = st[ii]["id"]
 
-    def last_after_impl():
-        # Insert right after implement (and after a select stage that follows it).
+    def after_impl():
         j = ii + 1
         while j < len(st) and st[j]["kind"] == "select":
             j += 1
@@ -62,40 +98,37 @@ def apply(o, op, stage=None, n=None):
 
     if op in ("add_review", "add_blind_review"):
         blind = op == "add_blind_review"
-        st.insert(last_after_impl(), {"id": _uid(o, "blind_reviewer" if blind else "reviewer"),
-                                      "kind": "review", "blind": blind, "can_veto": True,
-                                      "on_reject": _impl_id(o), "search": False})
+        st.insert(after_impl(), {"id": _uid(st, "blind_reviewer" if blind else "reviewer"),
+                                 "kind": "review", "blind": blind, "can_veto": True,
+                                 "on_reject": impl_id, "search": False})
+    elif op == "set_panel":
+        if not named or named["kind"] != "review":
+            return None
+        named["voters"] = max(1, min(5, int(n or random.choice([1, 3, 5]))))
+        named["rule"] = rule if rule in orgmod.RULES else random.choice(sorted(orgmod.RULES))
     elif op == "remove_stage":
         if not named or named["kind"] == "implement":
             return None
         st.remove(named)
-        for s in st:  # repoint any back-edges at the removed stage
+        for s in st:  # repoint back-edges at the removed stage
             for k in ("on_reject", "on_fail"):
                 if s.get(k) == named["id"]:
-                    s[k] = _impl_id(o)
-        if not any(s["kind"] in ("spec",) for s in st):
-            for s in list(st):
-                if s["kind"] == "verify":
-                    st.remove(s)
+                    s[k] = impl_id
+        if not any(s["kind"] == "spec" for s in st):
+            st[:] = [s for s in st if s["kind"] != "verify"]
     elif op in ("toggle_blind", "toggle_veto"):
         if not named or named["kind"] != "review":
             return None
         key = "blind" if op == "toggle_blind" else "can_veto"
         named[key] = not named.get(key, key == "can_veto")
     elif op == "set_parallel":
-        n = int(n or random.choice([1, 3, 5]))
-        n = max(1, min(5, n))
-        impl = st[ii]
-        if impl.get("parallel", 1) == n:
-            return None
-        impl["parallel"] = n
+        n = max(1, min(5, int(n or random.choice([1, 3, 5]))))
+        st[ii]["parallel"] = n
         has_select = ii + 1 < len(st) and st[ii + 1]["kind"] == "select"
         if n > 1 and not has_select:
-            st.insert(ii + 1, {"id": _uid(o, "selector"), "kind": "select", "by": "tests", "search": False})
+            st.insert(ii + 1, {"id": _uid(st, "selector"), "kind": "select", "by": "tests", "search": False})
         if n == 1 and has_select:
             st.pop(ii + 1)
-    elif op == "toggle_shared_memory":
-        o["shared_memory"] = not o["shared_memory"]
     elif op == "toggle_search":
         if not named:
             return None
@@ -103,52 +136,81 @@ def apply(o, op, stage=None, n=None):
     elif op == "add_spec":
         if any(s["kind"] == "spec" for s in st):
             return None
-        st.insert(0, {"id": _uid(o, "spec_writer"), "kind": "spec", "search": False})
+        st.insert(0, {"id": _uid(st, "spec_writer"), "kind": "spec", "search": False})
     elif op == "add_verify":
         if any(s["kind"] == "verify" for s in st):
             return None
         if not any(s["kind"] == "spec" for s in st):
-            st.insert(0, {"id": _uid(o, "spec_writer"), "kind": "spec", "search": False})
-        st.append({"id": _uid(o, "verifier"), "kind": "verify", "on_fail": _impl_id(o), "search": False})
-    elif op == "set_max_rounds":
-        n = max(1, min(6, int(n or random.choice([1, 2, 4, 6]))))
-        if o["max_rounds"] == n:
+            st.insert(0, {"id": _uid(st, "spec_writer"), "kind": "spec", "search": False})
+        st.append({"id": _uid(st, "verifier"), "kind": "verify", "on_fail": impl_id, "search": False})
+    elif op == "add_skunkworks":
+        if len(o["teams"]) >= MAX_TEAMS:
             return None
-        o["max_rounds"] = n
+        o["teams"].append({"name": _uid(o["teams"], "skunkworks", key="name"), "isolated": True,
+                           "stages": [{"id": "builder", "kind": "implement", "parallel": 1, "search": True}]})
+    elif op == "fork_team":
+        if len(o["teams"]) >= MAX_TEAMS:
+            return None
+        clone = copy.deepcopy(t)
+        clone["name"] = _uid(o["teams"], f"{t['name']}_fork", key="name")
+        clone["isolated"] = True
+        o["teams"].append(clone)
+    elif op == "remove_team":
+        if len(o["teams"]) <= 1:
+            return None
+        o["teams"].remove(t)
+    elif op == "toggle_isolated":
+        if len(o["teams"]) <= 1:
+            return None
+        t["isolated"] = not t["isolated"]
+    elif op == "set_governance":
+        by = by if by in orgmod.DECIDE_BY else random.choice(sorted(orgmod.DECIDE_BY))
+        o["decide"] = {"by": by, "voters": max(3, min(5, int(n or 3))) if by == "council" else 1}
+    elif op == "toggle_shared_memory":
+        o["shared_memory"] = not o["shared_memory"]
+    elif op == "set_max_rounds":
+        o["max_rounds"] = max(1, min(6, int(n or random.choice([1, 2, 4, 6]))))
     elif op == "flip_breaker":
         o["on_breaker"] = "ship" if o["on_breaker"] == "escalate" else "escalate"
     else:
         return None
 
-    if ids == [s["id"] for s in o["stages"]] and op in ("add_review", "add_blind_review", "add_spec", "add_verify", "remove_stage"):
-        return None
+    if json.dumps(o, sort_keys=True) == before:
+        return None  # no-op mutation: nothing to test
     try:
         return orgmod.normalize(o)
-    except AssertionError:
+    except (AssertionError, KeyError, ValueError, TypeError):
         return None
 
 
 def random_mutation(o):
-    for _ in range(30):
+    for _ in range(40):
         op = random.choice(list(OPS))
-        stage = random.choice(o["stages"])["id"]
-        child = apply(o, op, stage=stage)
+        t = random.choice(o["teams"])
+        stage = random.choice(t["stages"])["id"]
+        child = apply(o, op, team=t["name"], stage=stage)
         if child:
-            return child, {"op": op, "stage": stage, "by": "random"}
+            return child, {"op": op, **_relevant(op, {"team": t["name"], "stage": stage}),
+                           "source": "random"}
     return None, None
 
 
-META_PROMPT = """You redesign the ORGANIZATIONAL STRUCTURE of a team of AI agents that fixes
-vague software issues. You cannot change prompts or models, only the structure.
-You may use structures no human company would use: AI agents are cheap, can be
-cloned, can share memory instantly, and never get tired or offended.
+META_PROMPT = """You redesign the ORGANIZATIONAL STRUCTURE of AI agents that fix vague
+software issues. You cannot change prompts or models, only the structure.
+Do not assume a single boss is best. Consider independent competing teams,
+isolated skunkworks, councils of peers that vote, evidence-based decisions,
+or one simple team. AI agents are cheap, can be cloned, can share memory
+instantly, and never get tired or offended.
 
 Allowed mutations (choose exactly ONE):
 {ops}
 
-Reply with ONLY a JSON object, e.g.
-{{"op": "set_parallel", "n": 5, "reason": "..."}} or
-{{"op": "toggle_blind", "stage": "attending", "reason": "..."}}
+Parameters: `team` (team name), `stage` (stage id), `n` (number),
+`by` (tests|leader|council|router), `rule` (majority|unanimous).
+Reply with ONLY a JSON object, for example
+{{"op": "add_skunkworks", "reason": "..."}}
+{{"op": "set_governance", "by": "council", "n": 3, "reason": "..."}}
+{{"op": "set_panel", "team": "team", "stage": "attending", "n": 3, "rule": "majority", "reason": "..."}}
 """
 
 
@@ -156,7 +218,9 @@ def meta_mutation(o, card, history):
     """Ask the meta-agent for a mutation grounded in this org's failures."""
     ops = "\n".join(f"- {k}: {v}" for k, v in OPS.items())
     tried = "\n".join(f"- {h['mutation']} -> {h['result']}" for h in history[-8:]) or "(none yet)"
-    user = (f"CURRENT ORG: {orgmod.summary(o)}\n\nSTRUCTURE:\n{json.dumps(o['stages'], indent=1)}\n\n"
+    shape = {"teams": o["teams"], "decide": o["decide"], "shared_memory": o["shared_memory"],
+             "max_rounds": o["max_rounds"], "on_breaker": o["on_breaker"]}
+    user = (f"CURRENT ORG: {orgmod.summary(o)}\n\nSTRUCTURE:\n{json.dumps(shape, indent=1)}\n\n"
             f"SCORECARD: score={card['score']} solved={card['solved']}/{card['runs']} "
             f"cost=${card['cost_usd']} escalations={card['escalations']}\n\n"
             f"WHERE IT FAILED (team notes):\n{json.dumps(card['failures'], indent=1)[:3500]}\n\n"
@@ -176,12 +240,25 @@ def meta_mutation(o, card, history):
             text, _ = llm.chat(msgs, model=llm.META_MODEL, max_tokens=1500, temperature=0.8)
         m = re.search(r"\{.*\}", text, re.S)
         spec = json.loads(m.group(0)) if m else {}
-        child = apply(o, spec.get("op"), stage=spec.get("stage"), n=spec.get("n"))
+        args = {k: spec.get(k) for k in ("team", "stage", "n", "by", "rule")}
+        child = apply(o, spec.get("op"), **args)
         if child:
-            return child, {"op": spec.get("op"), "stage": spec.get("stage"), "n": spec.get("n"),
-                           "reason": str(spec.get("reason", ""))[:300], "by": "meta-agent"}
+            return child, {"op": spec.get("op"), **_relevant(spec.get("op"), args),
+                           "reason": str(spec.get("reason", ""))[:300], "source": "meta-agent"}
     except (llm.BudgetExceeded, llm.FatalAPIError):
         raise
     except Exception:
         pass
     return random_mutation(o)  # fall back so evolution never stalls
+
+
+def describe(mut):
+    """Short human-readable label for a mutation, e.g. 'set_panel attending n=3 majority'."""
+    if not mut:
+        return "?"
+    bits = [str(mut.get("op"))]
+    for k in ("team", "stage", "by", "n", "rule"):
+        v = mut.get(k)
+        if v is not None and v != "":
+            bits.append(f"{k}={v}" if k in ("n", "by", "rule") else str(v))
+    return " ".join(bits)

@@ -9,10 +9,10 @@
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
 
 **What it does**
-- **Org charts as code.** An organization is a YAML file: roles, handoffs, who can veto, how many parallel attempts, shared memory, circuit breakers. Swap the file and you get a different company running on the same model.
-- **Human orgs as the starting population.** A teaching hospital (inspired by Cockroach Labs' [MOLT Sinai](https://www.cockroachlabs.com/blog/experiment-running-hospital-code/)), a university research lab, and a flat startup baseline.
+- **Org charts as code, not just one boss.** An organization is a YAML file: one or more teams (isolated or connected), each with its own pipeline of roles, plus a governance rule for how the final answer is chosen: evidence (tests), a single leader, a council of peers that votes, or a router that splits the work across divisions. Flat, functional, divisional, matrix, skunkworks and leaderless councils are all expressible. Swap the file and you get a different company running on the same model.
+- **Human orgs as the starting population.** A teaching hospital (inspired by Cockroach Labs' [MOLT Sinai](https://www.cockroachlabs.com/blog/experiment-running-hospital-code/)), a university research lab, a Lockheed-style skunkworks, a leaderless council of peers, and a one-person startup baseline. A catalog adds the four textbook structures.
 - **Fair, hidden grading.** Every org fixes the same vague one-line software issues. A pytest grader scores the result with hidden tests the agents never see.
-- **Evolution past the human baseline.** A Nemotron meta-agent reads where each org failed and proposes one structural mutation, including options no human company would use: blind reviewers, disposable parallel clones, instant shared memory. A mutant survives only if it beats its parent.
+- **Evolution past the human baseline.** A Nemotron meta-agent reads where each org failed and proposes one structural mutation, from a role tweak to reshaping the whole company: spin off a skunkworks, fork a team to compete with itself, dissolve a team, switch from a leader to a council or a router, or use options no human company would: blind reviewers, disposable parallel clones, instant shared memory. A mutant survives only if it beats its parent.
 - **Catches itself looping.** If an implementer resubmits work it already tried, or send-backs hit the round limit, a circuit breaker trips and the org either ships its best work or pages a human (`page_human` events), exactly as its YAML says.
 - **Walk away.** Start one command; it evolves, gates, and finishes with a held-out exam on tasks evolution never saw. Budget caps, Ctrl-C and API failures all end in saved results, and `--resume` continues a stopped run.
 
@@ -25,11 +25,13 @@
 | `flat_startup` (baseline) | engineer | pending | pending | pending |
 | `crusoe_general` (hospital) | triage+search → fellow → attending → discharge | pending | pending | pending |
 | `research_lab` | pi+search → undergrad → grad students ×3 → pi pick → lab meeting | pending | pending | pending |
+| `skunkworks` | main division (spec → engineer → review) \| isolated skunkworks (builder+search) ⇒ tests decide | pending | pending | pending |
+| `council_of_peers` | 3 independent partners ⇒ council of 3 votes | pending | pending | pending |
 | **Evolved champion** | pending | pending | pending | pending |
 
 ```mermaid
 flowchart LR
-  Y["orgs/*.yaml<br/>(gen 0: hospital, lab, startup)"] --> E["Engine<br/>runs an org on a task"]
+  Y["orgs/*.yaml<br/>(gen 0: hospital, lab, skunkworks,<br/>council, startup)"] --> E["Engine<br/>runs an org on a task"]
   E -- "every role's call" --> C["Crusoe Managed Inference<br/>NVIDIA Nemotron"]
   E -- "roles granted search" --> YC["You.com<br/>web search"]
   E -- "candidate code" --> S["Sandbox<br/>pytest, hidden tests"]
@@ -40,7 +42,7 @@ flowchart LR
   L --> X["Held-out exam<br/>best human vs champion"]
 ```
 
-**Quick links:** [Try it](#try-it) · [How it works](#how-it-works) · [The seed orgs](#the-seed-orgs) · [Mutations](#mutation-menu) · [Crusoe + Nemotron](#crusoe-and-nvidia-nemotron) · [You.com](#youcom) · [For AI agents](#for-ai-agents) · [Honest limits](#status-and-honest-limits)
+**Quick links:** [Try it](#try-it) · [How it works](#how-it-works) · [The seed orgs](#the-seed-orgs) · [Org shapes](#org-shapes-beyond-one-boss) · [Mutations](#mutation-menu) · [Crusoe + Nemotron](#crusoe-and-nvidia-nemotron) · [You.com](#youcom) · [For AI agents](#for-ai-agents) · [Honest limits](#status-and-honest-limits)
 
 ---
 
@@ -50,6 +52,7 @@ flowchart LR
 - [For AI agents](#for-ai-agents)
 - [How it works](#how-it-works)
 - [The seed orgs](#the-seed-orgs)
+- [Org shapes beyond one boss](#org-shapes-beyond-one-boss)
 - [Mutation menu](#mutation-menu)
 - [The tasks](#the-tasks)
 - [Crusoe and NVIDIA Nemotron](#crusoe-and-nvidia-nemotron)
@@ -81,6 +84,7 @@ flowchart LR
 4. **Compare the human orgs, then walk away.**
    ```bash
    python run.py compare --split train
+   python run.py compare --orgs "orgs/catalog/*.yaml"     # flat, functional, divisional, matrix
    DARWIN_BUDGET=5 python run.py evolve --generations 3 --children 2
    ```
 
@@ -116,15 +120,18 @@ Rules: evolution may change structure only, never `prompts/`. Agents never see `
 
 ### One task, one org
 
+All of an org's teams start on the task in parallel (or, under `router` governance, a dispatcher first assigns it to one team). Each team runs its own pipeline:
+
 | # | Stage kind | What happens | Model |
 |---|---|---|---|
 | 1 | `spec` | Writes the team's definition of done as pytest tests from a vague one-line issue | Nemotron 3.5 Lightning |
 | 2 | `plan` | Sets direction for implementers (a PI, a design lead) | Nemotron 3.5 Lightning |
 | 3 | `implement` | Rewrites the module; `parallel: N` runs N independent attempts concurrently | Nemotron 3.5 Lightning |
 | 4 | `select` | Picks one candidate, by team tests or by an LLM judge | tests or Nemotron |
-| 5 | `review` | Verdict APPROVE/REJECT; with `can_veto`, a rejection sends work back. A `blind` reviewer sees tests and results but never the code | Nemotron 3.5 Lightning |
+| 5 | `review` | Verdict APPROVE/REJECT; with `can_veto`, a rejection sends work back. A `blind` reviewer sees tests and results but never the code. `voters: N` with `rule: majority\|unanimous` makes it a panel instead of one boss | Nemotron 3.5 Lightning |
 | 6 | `verify` | Runs the team's own tests in the sandbox; failure sends work back | none (pytest) |
-| 7 | grade | Hidden tests score the final code, 0 to 1 | none (pytest) |
+| 7 | decide | With several teams, governance picks one answer: `tests` (most of everyone's tests passed), `leader` (one judge), `council` (N peers vote, tests break ties) | tests or Nemotron |
+| 8 | grade | Hidden tests score the final code, 0 to 1 | none (pytest) |
 
 Send-backs count as rounds. The circuit breaker trips when `max_rounds` is reached or when an implementer resubmits code it already tried (a loop). The org then either `escalate`s (stops and pages a human) or `ship`s the best so far.
 
@@ -155,7 +162,30 @@ Send-backs count as rounds. The circuit breaker trips when `max_rounds` is reach
 |---|---|---|
 | [`crusoe_general`](orgs/hospital.yaml) | triage (spec, search) → fellow → attending (veto) → discharge (verify); 4 rounds then escalate | Teaching hospital: mandatory definition of done, second opinion, discharge audit |
 | [`research_lab`](orgs/lab.yaml) | PI direction (search) → undergrad (tests) → 3 grad students in parallel → PI picks → lab meeting (verify); shared memory; 2 rounds then ship | University lab: parallel exploration, shared findings |
+| [`skunkworks`](orgs/skunkworks.yaml) | main division: requirements → engineer → design review \| isolated skunkworks: one builder with search; the answer passing the most of everyone's tests wins | Lockheed Skunk Works: a small secret team outside the hierarchy |
+| [`council_of_peers`](orgs/council.yaml) | three partners work alone; a council of three votes; one partner's work also faces a 3-person majority panel | Partnership / oligarchy: no single leader |
 | [`flat_startup`](orgs/startup.yaml) | one engineer, no review | Baseline: does structure help at all? |
+
+---
+
+## Org shapes beyond one boss
+
+The model does not assume a single CEO. An org is any number of teams plus a governance rule, so the classic textbook structures are just files ([`orgs/catalog/`](orgs/catalog)):
+
+| Structure | How Darwin expresses it | File |
+|---|---|---|
+| **Flat** | General manager over two project teams; each PM plans and picks between two employees; the GM picks between projects (`decide: leader`) | [`flat.yaml`](orgs/catalog/flat.yaml) |
+| **Functional** | One pipeline through departments: requirements → R&D → QA → CEO sign-off | [`functional.yaml`](orgs/catalog/functional.yaml) |
+| **Divisional** | Self-contained divisions with their own functions and a `focus`; a dispatcher routes each issue to ONE division (`decide: router`), so divisions split work instead of duplicating it | [`divisional.yaml`](orgs/catalog/divisional.yaml) |
+| **Matrix** | Dual reporting: the engineer's work needs both the functional manager (reads the code) and the project manager (blind, accepts only against the definition of done); either can send it back | [`matrix.yaml`](orgs/catalog/matrix.yaml) |
+| **Skunkworks** | An isolated team that sees nothing from the main division, competing on evidence | [`skunkworks.yaml`](orgs/skunkworks.yaml) |
+| **Oligarchy / partnership** | Peer teams and a voting council, no leader | [`council.yaml`](orgs/council.yaml) |
+
+Run them head to head with `python run.py compare --orgs "orgs/catalog/*.yaml"`, or seed evolution with any mix: `python run.py evolve --orgs "orgs/**/*.yaml"`.
+
+Evolution can move between these shapes on its own: `add_skunkworks` and `fork_team` turn a one-team org into a multi-team one, `set_governance` switches between tests, leader, council and router, `toggle_isolated` connects or cuts off a team, and `remove_team` dissolves one.
+
+One honest note on matrix: human matrices exist mostly to share scarce specialists between projects. Agent specialists are not scarce (they can be cloned), so in Darwin the matrix reduces to its other defining feature, dual reporting.
 
 ---
 
@@ -166,7 +196,12 @@ Send-backs count as rounds. The circuit breaker trips when `max_rounds` is reach
 | `add_review` | | Reviewer with veto after implementation |
 | `add_blind_review` | yes | Reviewer who judges tests and evidence but never sees the code |
 | `set_parallel` (1, 3, 5) | yes | Disposable clones race on the same task; a selector keeps one |
-| `toggle_shared_memory` | yes | Every role sees every finding instantly |
+| `toggle_shared_memory` | yes | Every role in every connected team sees every finding instantly |
+| `set_panel` (1, 3, 5; majority or unanimous) | | Turn one reviewer into a voting panel |
+| `add_skunkworks` | | Spin up a small isolated team (one builder with search) |
+| `fork_team` | yes | Clone a team as an isolated competitor of itself |
+| `remove_team`, `toggle_isolated` | | Dissolve a team; cut it off from or reconnect it to shared findings |
+| `set_governance` (tests, leader, council, router) | | Change how the organization decides, or turn competing teams into divisions |
 | `toggle_search` | | Grant or remove You.com search for a role |
 | `toggle_blind`, `toggle_veto` | | Change what a reviewer sees or whether it can send work back |
 | `add_spec`, `add_verify` | | Definition of done first; run the team's own tests before shipping |
@@ -229,13 +264,13 @@ Search is a structural property, not a default: a stage gets `search: true` in i
 ## Repo map
 
 ```
-orgs/        seed org charts (YAML)
+orgs/        seed org charts (YAML); orgs/catalog/ flat, functional, divisional, matrix
 prompts/     frozen prompts, one per kind of work
 tasks/       train/ and heldout/: issue.md, starter.py, hidden_test.py
 reference/   reference solutions (only to validate hidden tests)
 darwin/      engine, org schema, evolution, scoring, Crusoe client, You.com search, sandbox
 run.py       CLI: check, once, compare, evolve (--resume)
-tests/       85 offline tests: benchmark soundness, sandbox, orgs, every mutation, engine, live-client failures, CLI
+tests/       241 offline tests: benchmark soundness, sandbox, orgs, every mutation on every org, governance, engine, live-client failures, CLI
 runs/        outputs (gitignored)
 ```
 
@@ -252,12 +287,15 @@ runs/        outputs (gitignored)
 | `DARWIN_META_MODEL` | no | Override the meta-agent model ID |
 | `DARWIN_MOCK` | no | `1` runs offline with a fake model |
 | `DARWIN_WORKERS` | no (default 4) | Tasks run in parallel per evaluation |
+| `DARWIN_MAX_CONCURRENCY` | no (default 12) | Cap on simultaneous model calls across teams, clones and voters |
 
 ---
 
 ## Glossary
 
-- **Org**: a YAML file describing a team's structure.
+- **Org**: a YAML file describing an organization: teams plus a governance rule.
+- **Team**: one group with its own pipeline of roles; `isolated` teams see nothing from the others.
+- **Governance**: how the final answer is chosen between teams (tests, leader, council, router).
 - **Stage**: one role's step (spec, plan, implement, select, review, verify).
 - **Round**: one send-back from a review or verify stage.
 - **Circuit breaker**: what happens at `max_rounds` (escalate or ship).

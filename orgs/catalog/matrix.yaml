@@ -1,0 +1,14 @@
+name: matrix
+description: >
+  Matrix structure. Every engineer reports to two bosses: the functional
+  manager (engineering, who reviews the code itself) and the project manager
+  (who never reads code and accepts only against the definition of done).
+  Either one can send the work back.
+shared_memory: true
+max_rounds: 4
+on_breaker: escalate
+stages:
+  - {id: project_manager_spec, kind: spec}
+  - {id: engineer, kind: implement}
+  - {id: functional_manager, kind: review, can_veto: true, on_reject: engineer}
+  - {id: project_manager_accept, kind: review, blind: true, can_veto: true, on_reject: engineer}

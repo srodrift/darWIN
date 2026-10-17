@@ -1,0 +1,21 @@
+name: divisional
+description: >
+  Divisional structure. Self-contained divisions each own a kind of product
+  and have their own functions. A dispatcher sends each issue to ONE
+  division, so divisions split the work instead of duplicating it.
+shared_memory: false
+max_rounds: 3
+on_breaker: ship
+decide: {by: router}
+teams:
+  - name: standards_division
+    focus: issues defined by an external standard or specification (formats, checksums, versioning rules)
+    stages:
+      - {id: standards_analyst, kind: spec, search: true}
+      - {id: standards_engineer, kind: implement}
+      - {id: standards_qa, kind: verify, on_fail: standards_engineer}
+  - name: utilities_division
+    focus: everyday utility code (text, numbers, collections, parsing)
+    stages:
+      - {id: utilities_engineer, kind: implement}
+      - {id: utilities_review, kind: review, can_veto: true, on_reject: utilities_engineer}

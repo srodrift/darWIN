@@ -1,0 +1,21 @@
+name: skunkworks
+description: >
+  Lockheed Skunk Works style. The main division follows the full process
+  (requirements, engineering, design review). A tiny skunkworks team works
+  in isolation with no review and no reporting line, just a builder with
+  web search. Neither team's leader decides: the answer that passes the
+  most of everyone's tests wins.
+shared_memory: true
+max_rounds: 3
+on_breaker: ship
+decide: {by: tests}
+teams:
+  - name: main_division
+    stages:
+      - {id: requirements, kind: spec}
+      - {id: engineer, kind: implement}
+      - {id: design_review, kind: review, can_veto: true, on_reject: engineer}
+  - name: skunkworks
+    isolated: true
+    stages:
+      - {id: builder, kind: implement, search: true}

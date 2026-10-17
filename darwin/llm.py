@@ -38,6 +38,9 @@ class FatalAPIError(RuntimeError):
 
 
 _NO_TEMPLATE_KWARGS = set()
+# Multi-team orgs fan out (teams x clones x council voters x parallel tasks);
+# cap simultaneous requests so we stay under Crusoe's per-minute limits.
+_SLOTS = threading.BoundedSemaphore(int(os.environ.get("DARWIN_MAX_CONCURRENCY", "12")))
 
 
 class Ledger:
@@ -98,10 +101,11 @@ def chat(messages, model=None, max_tokens=2048, temperature=0.6):
         try:
             extra = {"chat_template_kwargs": {"enable_thinking": False,
                                               "force_nonempty_content": True}} if use_kwargs else None
-            resp = client.chat.completions.create(
-                model=model, messages=messages, max_tokens=max_tokens,
-                temperature=temperature, top_p=0.95, extra_body=extra,
-            )
+            with _SLOTS:
+                resp = client.chat.completions.create(
+                    model=model, messages=messages, max_tokens=max_tokens,
+                    temperature=temperature, top_p=0.95, extra_body=extra,
+                )
             msg = resp.choices[0].message
             text = msg.content or ""
             if not text:
@@ -165,6 +169,9 @@ def _mock_reply(messages):
     if "redesign" in sys_prompt:
         op = random.choice(["add_blind_review", "set_parallel", "toggle_shared_memory", "add_review"])
         return json.dumps({"op": op, "n": 3, "reason": "mock meta-agent"})
+    if "route an incoming issue" in sys_prompt:
+        names = re.findall(r"^- ([\w-]+):", user, re.M) or ["team"]
+        return f"TEAM: {random.choice(names)}\nBest fit."
     if "set direction" in sys_prompt:
         return "- Handle empty and invalid input.\n- Do not mutate arguments."
     # implement: better odds with a definition of done and with reviewer feedback

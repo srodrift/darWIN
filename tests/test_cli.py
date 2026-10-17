@@ -51,3 +51,19 @@ def test_tiny_budget_exits_cleanly():
                        env={**os.environ, "DARWIN_MOCK": "1", "DARWIN_BUDGET": "0.0005"},
                        capture_output=True, text=True, timeout=300)
     assert p.returncode == 0 and "saved" in p.stdout
+
+
+def test_compare_with_catalog_orgs():
+    out = run_cli("compare", "--orgs", "orgs/catalog/*.yaml")
+    for name in ("flat", "functional", "divisional", "matrix"):
+        assert name in out
+
+
+def test_once_finds_catalog_org():
+    assert "hidden tests:" in run_cli("once", "--org", "matrix", "--task", "median")
+
+
+def test_bad_orgs_glob_errors():
+    p = subprocess.run([sys.executable, "run.py", "compare", "--orgs", "orgs/nope/*.yaml"], cwd=ROOT,
+                       env={**os.environ, "DARWIN_MOCK": "1"}, capture_output=True, text=True)
+    assert p.returncode != 0 and "no org files" in p.stderr

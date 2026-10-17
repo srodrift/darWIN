@@ -1,0 +1,13 @@
+name: functional
+description: >
+  Functional structure. One line of work passes through departments grouped
+  by function: requirements writes the definition of done, R&D builds, QA
+  runs the tests, and the CEO signs off with veto power.
+shared_memory: false
+max_rounds: 3
+on_breaker: escalate
+stages:
+  - {id: requirements_dept, kind: spec}
+  - {id: rnd_dept, kind: implement}
+  - {id: qa_dept, kind: verify, on_fail: rnd_dept}
+  - {id: ceo_signoff, kind: review, can_veto: true, on_reject: rnd_dept}

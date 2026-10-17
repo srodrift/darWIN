@@ -1,0 +1,21 @@
+name: council_of_peers
+description: >
+  No single leader. Three independent partners each solve the problem on
+  their own, and a council of three peers votes on whose work ships
+  (plurality wins, tests break ties). Partner C also puts her work before
+  a three-person peer panel that decides by majority, not by one boss.
+shared_memory: false
+max_rounds: 2
+on_breaker: ship
+decide: {by: council, voters: 3}
+teams:
+  - name: partner_a
+    stages:
+      - {id: partner_a, kind: implement}
+  - name: partner_b
+    stages:
+      - {id: partner_b, kind: implement}
+  - name: partner_c
+    stages:
+      - {id: partner_c, kind: implement}
+      - {id: peer_panel, kind: review, voters: 3, rule: majority, on_reject: partner_c}

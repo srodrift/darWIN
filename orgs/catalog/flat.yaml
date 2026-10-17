@@ -1,0 +1,21 @@
+name: flat
+description: >
+  Flat structure. A general manager over two project managers, each with two
+  employees. Few levels, lots of autonomy: each project manager directs and
+  picks between their own employees' work; the general manager picks the
+  final answer between the two projects.
+shared_memory: false
+max_rounds: 1
+on_breaker: ship
+decide: {by: leader}
+teams:
+  - name: project_a
+    stages:
+      - {id: pm_a, kind: plan}
+      - {id: employees_a, kind: implement, parallel: 2}
+      - {id: pm_a_picks, kind: select, by: judge}
+  - name: project_b
+    stages:
+      - {id: pm_b, kind: plan}
+      - {id: employees_b, kind: implement, parallel: 2}
+      - {id: pm_b_picks, kind: select, by: judge}

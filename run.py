@@ -26,8 +26,18 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
 # ---------------------------------------------------------------- helpers
-def seed_orgs():
-    return [orgmod.load(p) for p in sorted(glob.glob(os.path.join(ROOT, "orgs", "*.yaml")))]
+def seed_orgs(pattern="orgs/*.yaml"):
+    """Load generation 0. `pattern` is a glob relative to the repo, e.g.
+    "orgs/catalog/*.yaml" or "orgs/**/*.yaml"."""
+    paths = sorted(glob.glob(os.path.join(ROOT, pattern), recursive=True))
+    if not paths:
+        sys.exit(f"no org files match '{pattern}'")
+    orgs = [orgmod.load(p) for p in paths]
+    names = [o["name"] for o in orgs]
+    dupes = {n for n in names if names.count(n) > 1}
+    if dupes:
+        sys.exit(f"duplicate org names in '{pattern}': {sorted(dupes)}")
+    return orgs
 
 
 def new_run_dir(tag, args=None):
@@ -97,11 +107,13 @@ def cmd_check(a):
 
 
 def cmd_once(a):
-    org_path = os.path.join(ROOT, "orgs", f"{a.org}.yaml")
+    org_path = next(iter(glob.glob(os.path.join(ROOT, "orgs", "**", f"{a.org}.yaml"), recursive=True)),
+                    os.path.join(ROOT, "orgs", f"{a.org}.yaml"))
     task_dirs = glob.glob(os.path.join(ROOT, "tasks", "*", a.task))
     if not os.path.exists(org_path):
         sys.exit(f"unknown org '{a.org}'. Options: " + ", ".join(
-            os.path.splitext(os.path.basename(p))[0] for p in glob.glob(os.path.join(ROOT, "orgs", "*.yaml"))))
+            os.path.splitext(os.path.basename(p))[0]
+            for p in glob.glob(os.path.join(ROOT, "orgs", "**", "*.yaml"), recursive=True)))
     if not task_dirs:
         sys.exit(f"unknown task '{a.task}'. Options: " + ", ".join(
             os.path.basename(p) for p in sorted(glob.glob(os.path.join(ROOT, "tasks", "*", "*")))))
@@ -122,7 +134,7 @@ def cmd_compare(a):
     log = engine.EventLog(os.path.join(d, "events.jsonl"))
     cards = []
     try:
-        for o in seed_orgs():
+        for o in seed_orgs(a.orgs):
             orgmod.dump(o, os.path.join(d, "orgs", f"{o['name']}.yaml"))
             cards.append(evaluate.evaluate(o, a.split, seeds=a.seeds, log=log))
             evaluate.save(cards, os.path.join(d, f"compare_{a.split}.json"))
@@ -146,7 +158,7 @@ def _load_resume(rdir):
             pop.append((orgmod.load(org_path), json.load(open(card_path))))
         if node.get("mutation"):
             m = node["mutation"]
-            history.append({"mutation": f"{m.get('op')} {m.get('stage') or m.get('n') or ''} on {node['parent']}",
+            history.append({"mutation": f"{evolve.describe(m)} on {node['parent']}",
                             "result": f"-> {node['score']} ({'kept' if node['kept'] else 'discarded'})"})
     start_gen = max(n["gen"] for n in lineage) + 1
     return lineage, history, pop, start_gen
@@ -189,7 +201,7 @@ def cmd_evolve(a):
         lineage, history, pop, start_gen = [], [], [], 1
         print("generation 0: human org charts")
         try:
-            for o in seed_orgs():
+            for o in seed_orgs(a.orgs):
                 card = evaluate.evaluate(o, "train", seeds=a.seeds, log=log)
                 pop.append((o, card))
                 record(o, card, 0)
@@ -210,8 +222,7 @@ def cmd_evolve(a):
                     if not child:
                         continue
                     child["name"] = unique_name(parent["name"], g)
-                    child["description"] = f"Mutant of {parent['name']}: {mut.get('op')} " \
-                                           f"{mut.get('stage') or mut.get('n') or ''}".strip()
+                    child["description"] = f"Mutant of {parent['name']}: {evolve.describe(mut)}"
                     card = evaluate.evaluate(child, "train", seeds=a.seeds, log=log)
                     # Gate: keep only a measurable improvement, never one tainted by API errors.
                     better = card["errors"] == 0 and (
@@ -220,9 +231,9 @@ def cmd_evolve(a):
                     log.emit(org=child["name"], task="*", type="spawn", parent=parent["name"],
                              mutation=mut, score=card["score"], kept=better)
                     record(child, card, g, parent["name"], mut, kept=better)
-                    history.append({"mutation": f"{mut.get('op')} {mut.get('stage') or mut.get('n') or ''} on {parent['name']}",
+                    history.append({"mutation": f"{evolve.describe(mut)} on {parent['name']}",
                                     "result": f"{pcard['score']} -> {card['score']} ({'kept' if better else 'discarded'})"})
-                    print(f"  g{g} {child['name']:30} {str(mut.get('op')):22} "
+                    print(f"  g{g} {child['name']:30} {evolve.describe(mut)[:34]:34} "
                           f"{pcard['score']:.3f} -> {card['score']:.3f}  {'KEPT' if better else 'discarded'}"
                           f"{'  (errors: ' + str(card['errors']) + ')' if card['errors'] else ''}")
                     if better:
@@ -266,9 +277,11 @@ def main():
     s.add_argument("--org", default="hospital")
     s.add_argument("--task", default="median")
     s = sub.add_parser("compare")
+    s.add_argument("--orgs", default="orgs/*.yaml", help='glob of org files, e.g. "orgs/catalog/*.yaml"')
     s.add_argument("--split", default="train")
     s.add_argument("--seeds", type=int, default=1)
     s = sub.add_parser("evolve")
+    s.add_argument("--orgs", default="orgs/*.yaml", help='glob of org files for generation 0')
     s.add_argument("--generations", type=int, default=3)
     s.add_argument("--parents", type=int, default=2)
     s.add_argument("--children", type=int, default=2)

@@ -108,4 +108,4 @@ def test_meta_model_missing_falls_back_to_worker(monkeypatch):
     o = org.load(engine.ROOT + "/orgs/startup.yaml")
     card = {"score": 0.5, "solved": 1, "runs": 2, "cost_usd": 0.0, "escalations": 0, "failures": []}
     child, mut = evolve.meta_mutation(o, card, [])
-    assert calls == ["meta-x", "worker-y"] and mut["by"] == "meta-agent" and child["shared_memory"]
+    assert calls == ["meta-x", "worker-y"] and mut["source"] == "meta-agent" and child["shared_memory"]
