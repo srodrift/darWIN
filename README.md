@@ -13,7 +13,8 @@
 - **Human orgs as the starting population.** A teaching hospital (inspired by Cockroach Labs' [MOLT Sinai](https://www.cockroachlabs.com/blog/experiment-running-hospital-code/)), a university research lab, and a flat startup baseline.
 - **Fair, hidden grading.** Every org fixes the same vague one-line software issues. A pytest grader scores the result with hidden tests the agents never see.
 - **Evolution past the human baseline.** A Nemotron meta-agent reads where each org failed and proposes one structural mutation, including options no human company would use: blind reviewers, disposable parallel clones, instant shared memory. A mutant survives only if it beats its parent.
-- **Walk away.** Start one command; it evolves, gates, and finishes with a held-out exam on tasks evolution never saw.
+- **Catches itself looping.** If an implementer resubmits work it already tried, or send-backs hit the round limit, a circuit breaker trips and the org either ships its best work or pages a human (`page_human` events), exactly as its YAML says.
+- **Walk away.** Start one command; it evolves, gates, and finishes with a held-out exam on tasks evolution never saw. Budget caps, Ctrl-C and API failures all end in saved results, and `--resume` continues a stopped run.
 
 **Results**
 
@@ -83,7 +84,12 @@ flowchart LR
    DARWIN_BUDGET=5 python run.py evolve --generations 3 --children 2
    ```
 
-Every run writes `runs/<id>/`: `events.jsonl` (every handoff, rejection, breaker trip and score, replayable without any model call), `lineage.json` (every org tried, its parent, its mutation, kept or discarded), `orgs/*.yaml` (each mutant as a runnable file) and `final.json` (held-out exam).
+5. **Run the test suite (offline, about 40 s).**
+   ```bash
+   python -m pytest tests -q
+   ```
+
+Every run writes `runs/<id>/`: `meta.json` (live or mock, models, settings), `events.jsonl` (every handoff, rejection, breaker trip and score, replayable without any model call), `lineage.json` (every org tried, its parent, its mutation, kept or discarded), `orgs/*.yaml` (each mutant as a runnable file) and `final.json` (held-out exam).
 
 ---
 
@@ -120,7 +126,7 @@ Rules: evolution may change structure only, never `prompts/`. Agents never see `
 | 6 | `verify` | Runs the team's own tests in the sandbox; failure sends work back | none (pytest) |
 | 7 | grade | Hidden tests score the final code, 0 to 1 | none (pytest) |
 
-Send-backs count as rounds. When `max_rounds` is reached the circuit breaker trips and the org either `escalate`s (stops and pages a human) or `ship`s the best so far.
+Send-backs count as rounds. The circuit breaker trips when `max_rounds` is reached or when an implementer resubmits code it already tried (a loop). The org then either `escalate`s (stops and pages a human) or `ship`s the best so far.
 
 <details>
 <summary><b>Evolution loop</b></summary>
@@ -192,6 +198,18 @@ All model calls go to Crusoe Managed Inference's OpenAI-compatible endpoint (`ht
 | Meta-agent | `nvidia/Nemotron-3-Super-120B-A12B` | Stronger reasoning for redesigning the org |
 
 <details>
+<summary><b>Failure handling</b></summary>
+
+- 429, 5xx and timeouts retry with jittered backoff; a task that still fails is retried once and then counted under `errors`, never silently scored as the org's fault.
+- The gate never keeps a mutant whose scorecard has errors.
+- A bad key or unknown model stops the run at once with a clear message (`FatalAPIError`); results so far stay on disk and `--resume runs/<id>` continues.
+- If a deployment rejects `chat_template_kwargs`, the client drops it for that model and continues.
+- If the meta-agent model is unavailable, evolution continues with the worker model.
+- Model replies are parsed defensively: any fence tag, cut-off replies, unfenced code; code that doesn't compile never becomes a candidate.
+- All JSON outputs are written atomically.
+</details>
+
+<details>
 <summary><b>Cost control</b></summary>
 
 - A thread-safe ledger prices every call from token usage.
@@ -216,7 +234,8 @@ prompts/     frozen prompts, one per kind of work
 tasks/       train/ and heldout/: issue.md, starter.py, hidden_test.py
 reference/   reference solutions (only to validate hidden tests)
 darwin/      engine, org schema, evolution, scoring, Crusoe client, You.com search, sandbox
-run.py       CLI: check, once, compare, evolve
+run.py       CLI: check, once, compare, evolve (--resume)
+tests/       85 offline tests: benchmark soundness, sandbox, orgs, every mutation, engine, live-client failures, CLI
 runs/        outputs (gitignored)
 ```
 
@@ -232,6 +251,7 @@ runs/        outputs (gitignored)
 | `DARWIN_WORKER_MODEL` | no | Override the worker model ID |
 | `DARWIN_META_MODEL` | no | Override the meta-agent model ID |
 | `DARWIN_MOCK` | no | `1` runs offline with a fake model |
+| `DARWIN_WORKERS` | no (default 4) | Tasks run in parallel per evaluation |
 
 ---
 
@@ -249,7 +269,7 @@ runs/        outputs (gitignored)
 
 ## Status and honest limits
 
-- Live results are pending; see [Results](#results). Mock-mode scores are meaningless and never reported.
+- Live results are pending; see [Results](#results). Mock-mode scores are meaningless, never reported, and every run's `meta.json` records whether it was mock or live.
 - Ten small Python tasks are a toy benchmark. Small samples are noisy, so held-out runs use repeated seeds and report spread.
 - Org roles share prompts by design; this isolates structure but means personas carry no extra behavior.
 - The sandbox is a subprocess with a timeout, not a hardened jail. NVIDIA OpenShell/NemoClaw is the intended drop-in.

@@ -163,16 +163,24 @@ def meta_mutation(o, card, history):
             f"MUTATIONS ALREADY TRIED AND THEIR RESULTS:\n{tried}\n\n"
             f"Propose the single structural change most likely to raise the score.")
     try:
-        text, _ = llm.chat([{"role": "system", "content": META_PROMPT.format(ops=ops)},
-                            {"role": "user", "content": user}],
-                           model=llm.META_MODEL, max_tokens=1500, temperature=0.8)
+        msgs = [{"role": "system", "content": META_PROMPT.format(ops=ops)},
+                {"role": "user", "content": user}]
+        try:
+            text, _ = llm.chat(msgs, model=llm.META_MODEL, max_tokens=1500, temperature=0.8)
+        except llm.FatalAPIError as e:
+            if llm.META_MODEL == llm.WORKER_MODEL:
+                raise
+            # Meta model unavailable: keep evolving with the worker model.
+            print(f"  (meta model unavailable, using {llm.WORKER_MODEL}: {str(e)[:120]})")
+            llm.META_MODEL = llm.WORKER_MODEL
+            text, _ = llm.chat(msgs, model=llm.META_MODEL, max_tokens=1500, temperature=0.8)
         m = re.search(r"\{.*\}", text, re.S)
         spec = json.loads(m.group(0)) if m else {}
         child = apply(o, spec.get("op"), stage=spec.get("stage"), n=spec.get("n"))
         if child:
             return child, {"op": spec.get("op"), "stage": spec.get("stage"), "n": spec.get("n"),
                            "reason": str(spec.get("reason", ""))[:300], "by": "meta-agent"}
-    except llm.BudgetExceeded:
+    except (llm.BudgetExceeded, llm.FatalAPIError):
         raise
     except Exception:
         pass

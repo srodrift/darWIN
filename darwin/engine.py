@@ -45,9 +45,33 @@ class EventLog:
 
 
 # ---------------------------------------------------------------- helpers
-def _code_block(text):
-    blocks = re.findall(r"```(?:python|py)?\s*\n(.*?)```", text or "", re.S)
-    return max(blocks, key=len).strip() + "\n" if blocks else None
+def _compiles(code):
+    try:
+        compile(code, "<candidate>", "exec")
+        return True
+    except (SyntaxError, ValueError):
+        return False
+
+
+def _code_block(text, must_contain=None):
+    """Extract runnable Python from a model reply. Tolerates any fence tag,
+    a missing closing fence (reply cut off) and unfenced code. Prefers the
+    block that contains `must_contain` and compiles."""
+    text = text or ""
+    blocks = re.findall(r"```[ \t]*[\w+-]*[ \t]*\n(.*?)```", text, re.S)
+    if not blocks:
+        tail = re.split(r"```[ \t]*[\w+-]*[ \t]*\n", text)
+        if len(tail) > 1:
+            blocks = [tail[-1]]  # unterminated fence: take what we got
+        elif re.search(r"^\s*(def |import |from |class )", text, re.M):
+            blocks = [text]
+    blocks = [b.strip() + "\n" for b in blocks if b.strip()]
+    if must_contain:
+        preferred = [b for b in blocks if must_contain in b]
+        blocks = preferred or blocks
+    good = [b for b in blocks if _compiles(b)]
+    pool = good or blocks
+    return max(pool, key=len) if pool else None
 
 
 def _ask(kind, user, model=None, max_tokens=2048):
@@ -85,11 +109,18 @@ def _run_stage(stage, state, org, log, task_name):
                  hits=bool(state["references"]))
 
     if kind == "spec":
-        text, cost = _ask("spec", _context(state, org, stage))
-        state["cost"] += cost
-        state["team_tests"] = _code_block(text) or ""
-        n = len(re.findall(r"\ndef test_", "\n" + state["team_tests"]))
-        state["notes"].append(f"[{sid}] wrote {n} acceptance tests")
+        tests = ""
+        for _attempt in range(2):  # one retry if the tests don't even compile
+            text, cost = _ask("spec", _context(state, org, stage))
+            state["cost"] += cost
+            tests = _code_block(text, must_contain="def test_") or ""
+            if tests and _compiles(tests) and "def test_" in tests:
+                break
+            tests = ""
+        state["team_tests"] = tests
+        n = len(re.findall(r"\ndef test_", "\n" + tests))
+        state["notes"].append(f"[{sid}] wrote {n} acceptance tests" if n else
+                              f"[{sid}] could not write valid tests")
         return "next", {"tests": n}
 
     if kind == "plan":
@@ -107,8 +138,8 @@ def _run_stage(stage, state, org, log, task_name):
         cands = []
         for text, cost in outs:
             state["cost"] += cost
-            code = _code_block(text)
-            if code:
+            code = _code_block(text, must_contain=f"def {state['task']['func']}(")
+            if code and _compiles(code) and f"def {state['task']['func']}(" in code:
                 cands.append(code)
         state["candidates"] = cands or [state.get("code") or state["task"]["starter"]]
         state["code"] = state["candidates"][0]
@@ -159,7 +190,8 @@ def _run_stage(stage, state, org, log, task_name):
             user = _context(state, org, stage) + f"\n\nPROPOSED MODULE:\n```python\n{state['code']}```"
         text, cost = _ask("review", user, max_tokens=800)
         state["cost"] += cost
-        approve = "VERDICT: APPROVE" in text.upper() or "REJECT" not in text.upper()
+        m = re.search(r"VERDICT\W*(APPROVE|REJECT)", text.upper())
+        approve = (m.group(1) == "APPROVE") if m else ("REJECT" not in text.upper())
         reasons = text.split("\n", 1)[1].strip()[:800] if "\n" in text else ""
         state["notes"].append(f"[{sid}] {'approved' if approve else 'rejected: ' + reasons[:160]}")
         if approve or not stage.get("can_veto", True):
@@ -181,12 +213,23 @@ def run(org, task, log=None, run_tag=""):
     stages = org["stages"]
     ids = [s["id"] for s in stages]
     i, rounds, steps, outcome = 0, 0, 0, "shipped"
+    seen_code = set()  # loop detection: an implementer re-submitting old work
     log.emit(org=org["name"], task=name, type="start")
+
+    def trip_breaker(role, why):
+        state["breaker"] = why
+        log.emit(org=org["name"], task=name, type="breaker", role=role, rounds=rounds,
+                 action=org["on_breaker"], why=why)
+        if org["on_breaker"] == "escalate":
+            log.emit(org=org["name"], task=name, type="page_human", role=role, why=why,
+                     last_feedback=state["feedback"][:300])
+            return "escalated"
+        return "shipped"
 
     while i < len(stages):
         steps += 1
         if steps > MAX_STEPS:
-            outcome = "breaker"
+            outcome = trip_breaker(stages[i]["id"], "step limit")
             break
         stage = stages[i]
         log.emit(org=org["name"], task=name, type="stage_start", role=stage["id"], kind=stage["kind"])
@@ -196,6 +239,15 @@ def run(org, task, log=None, run_tag=""):
             outcome = "budget"
             break
         log.emit(org=org["name"], task=name, type="stage_end", role=stage["id"], result=result, **info)
+
+        if stage["kind"] == "implement":
+            key = state["code"].strip()
+            if rounds > 0 and key in seen_code:
+                log.emit(org=org["name"], task=name, type="loop_detected", role=stage["id"], rounds=rounds)
+                state["notes"].append(f"[{stage['id']}] loop detected: resubmitted earlier work")
+                outcome = trip_breaker(stage["id"], "loop detected")
+                break
+            seen_code.add(key)
 
         if result == "next":
             if i + 1 < len(stages):
@@ -207,9 +259,7 @@ def run(org, task, log=None, run_tag=""):
         rounds += 1
         target = stage.get("on_reject") if result == "reject" else stage.get("on_fail")
         if rounds >= org["max_rounds"]:
-            log.emit(org=org["name"], task=name, type="breaker", role=stage["id"], rounds=rounds,
-                     action=org["on_breaker"])
-            outcome = "escalated" if org["on_breaker"] == "escalate" else "shipped"
+            outcome = trip_breaker(stage["id"], f"{rounds} send-backs")
             break
         target = target or next(s["id"] for s in stages if s["kind"] == "implement")
         log.emit(org=org["name"], task=name, type=result, **{"from": stage["id"]}, to=target,
@@ -221,7 +271,7 @@ def run(org, task, log=None, run_tag=""):
     res = {"org": org["name"], "task": task["name"], "score": round(score, 3),
            "passed": hidden["passed"], "total": hidden["total"], "outcome": outcome,
            "rounds": rounds, "cost_usd": round(state["cost"], 5), "code": state["code"],
-           "notes": state["notes"]}
+           "notes": state["notes"], "breaker": state.get("breaker")}
     log.emit(org=org["name"], task=name, type="done", outcome=outcome, score=res["score"],
              rounds=rounds, cost_usd=res["cost_usd"])
     return res
