@@ -16,18 +16,23 @@
 - **Catches itself looping.** If an implementer resubmits work it already tried, or send-backs hit the round limit, a circuit breaker trips and the org either ships its best work or pages a human (`page_human` events), exactly as its YAML says.
 - **Walk away.** Start one command; it evolves, gates, and finishes with a held-out exam on tasks evolution never saw. Budget caps, Ctrl-C and API failures all end in saved results, and `--resume` continues a stopped run.
 
-**Results**
+**Results** (live on Crusoe + NVIDIA Nemotron; every number from `python run.py report`, nothing estimated)
 
-> Pending the first live run on Crusoe. This table is filled only from `runs/<id>/final.json`; no number here is estimated.
+Full run `20261017-142203_evolve`: 5 human org charts, 2 generations, 15 mutants, 2 repeats per training score, 3 repeats on the final exam. Total cost about $0.11.
 
-| Org | Structure | Train score | Held-out score | Cost |
+| Final exam (tasks never used for selection) | Score | Repeats | Solved | Cost |
 |---|---|---|---|---|
-| `flat_startup` (baseline) | engineer | pending | pending | pending |
-| `crusoe_general` (hospital) | triage+search → fellow → attending → discharge | pending | pending | pending |
-| `research_lab` | pi+search → undergrad → grad students ×3 → pi pick → lab meeting | pending | pending | pending |
-| `skunkworks` | main division (spec → engineer → review) \| isolated skunkworks (builder+search) ⇒ tests decide | pending | pending | pending |
-| `council_of_peers` | 3 independent partners ⇒ council of 3 votes | pending | pending | pending |
-| **Evolved champion** | pending | pending | pending | pending |
+| Research lab (best human org) | 0.754 | 0.71 / 0.87 / 0.69 | 4/12 | $0.0138 |
+| **Evolved champion: lab + isolated skunkworks** | **0.772** | 0.71 / 0.67 / 0.94 | **5/12** | **$0.0124** |
+| One-person startup (baseline) | 0.704 | 0.55 / 0.77 / 0.80 | 0/12 | $0.0013 |
+
+Earlier quick run `20261017-121423_evolve` (2 human orgs, 1 generation): best human org (hospital) 0.830, evolved champion (hospital + blind reviewer) 0.861, baseline 0.580.
+
+What we observed:
+- **In both live runs the evolved org beat the best human design on unseen tasks.** The margins are small and inside the spread between repeats, so this is early evidence, not proof; more runs and harder tasks are the next step.
+- **The gate is strict:** of 15 mutants in the full run, 1 survived (the lab spinning up an isolated skunkworks team, train 0.832 → 0.867).
+- **There is no universal best org chart:** adding a blind reviewer *helped* the hospital (quick run) but *hurt* the research lab (full run). The right structure depends on the team.
+- **Done Means Done in practice:** the hospital's attending repeatedly rejected work and looped; loop detection and the circuit breaker stopped it and paged a human (24 times in the quick run), the same "bureaucracy" failure Cockroach Labs reported for their hospital.
 
 ```mermaid
 flowchart LR
@@ -331,7 +336,7 @@ runs/        outputs (gitignored)
 ## Status and honest limits
 
 - You.com search was off in the live runs so far (no key); see [You.com](#youcom).
-- Live results are pending; see [Results](#results). Mock-mode scores are meaningless, never reported, and every run's `meta.json` records whether it was mock or live.
+- Results come from two live runs; gains are small and within the spread between repeats (see [Results](#results)). Mock-mode scores are meaningless, never reported, and every run's `meta.json` records whether it was mock or live.
 - Ten small Python tasks are a toy benchmark. Small samples are noisy, so held-out runs use repeated seeds and report spread.
 - Org roles share prompts by design; this isolates structure but means personas carry no extra behavior.
 - The sandbox is a subprocess with a timeout, not a hardened jail. NVIDIA OpenShell/NemoClaw is the intended drop-in.
