@@ -3,6 +3,7 @@
 
   python run.py check                                  # Crusoe key + Nemotron models OK?
   python run.py spend                                  # estimated credits used, caps left
+  python run.py viewer [runs/<id>]                     # offline HTML: lineage, org replay, exam
   python run.py once --org hospital --task median      # one org, one task, verbose
   python run.py compare --split train                  # the three human orgs, head to head
   python run.py evolve --generations 3 --children 2    # walk away: evolve past them
@@ -131,6 +132,21 @@ def cmd_spend(a):
     print("These are local estimates from token counts; check the Crusoe console for actual billing.")
 
 
+def cmd_viewer(a):
+    """Write runs/<id>/viewer.html: lineage, org map with replay, held-out exam."""
+    from darwin import viewer
+    run_dir = a.run_dir
+    if not run_dir:
+        dirs = sorted(d for d in glob.glob(os.path.join(ROOT, "runs", "*"))
+                      if os.path.isdir(os.path.join(d, "orgs")))
+        if not dirs:
+            sys.exit("no runs yet; run `python run.py evolve` or `compare` first")
+        run_dir = dirs[-1]
+    path = viewer.build(run_dir)
+    print(f"viewer written: {path}")
+    print(f"open it with:   open '{path}'")
+
+
 def cmd_once(a):
     org_path = next(iter(glob.glob(os.path.join(ROOT, "orgs", "**", f"{a.org}.yaml"), recursive=True)),
                     os.path.join(ROOT, "orgs", f"{a.org}.yaml"))
@@ -190,6 +206,8 @@ def main():
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("check")
     sub.add_parser("spend")
+    s = sub.add_parser("viewer")
+    s.add_argument("run_dir", nargs="?", help="a runs/<id> directory (default: the latest run)")
     s = sub.add_parser("once")
     s.add_argument("--org", default="hospital")
     s.add_argument("--task", default="median")
@@ -208,7 +226,7 @@ def main():
     s.add_argument("--resume", help="continue from a previous runs/<id> directory")
     a = p.parse_args()
     try:
-        {"check": cmd_check, "spend": cmd_spend, "once": cmd_once, "compare": cmd_compare, "evolve": cmd_evolve}[a.cmd](a)
+        {"check": cmd_check, "spend": cmd_spend, "viewer": cmd_viewer, "once": cmd_once, "compare": cmd_compare, "evolve": cmd_evolve}[a.cmd](a)
     except llm.FatalAPIError as e:
         sys.exit(f"\nSTOPPED: {e}\nEverything finished so far is saved under runs/. "
                  f"For evolve, fix the problem and continue with --resume runs/<id>.")

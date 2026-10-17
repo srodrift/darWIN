@@ -99,7 +99,12 @@ flowchart LR
    ./scripts/evolve_demo.sh          # quick: startup + hospital, 1 generation, $0.50 cap
    ./scripts/evolve_demo.sh full     # all 5 human orgs, 2 generations, $1 cap
    ```
-7. **Run the whole test suite (offline, about a minute).**
+7. **See a run.** Builds one offline HTML page from a run folder: the evolution lineage (click any org), the org map drawn from its YAML with an animated replay of a recorded task (handoffs, send-backs, loop detection, human pages, council votes), per-task scores and the held-out exam. No network, no model calls.
+   ```bash
+   python run.py viewer              # latest run
+   open runs/<id>/viewer.html
+   ```
+8. **Run the whole test suite (offline, about a minute).**
    ```bash
    python -m pytest tests -q
    ```
@@ -116,6 +121,7 @@ Every run writes `runs/<id>/`: `meta.json` (live or mock, models, settings), `ev
 | Org schema and validation | [`darwin/org.py`](darwin/org.py) |
 | Mutations and meta-agent | [`darwin/evolve.py`](darwin/evolve.py) (`OPS`, `apply`, `meta_mutation`) |
 | Evolution loop and gate | [`darwin/evolution.py`](darwin/evolution.py) (`run`, `gate`) |
+| Run viewer (offline HTML) | [`darwin/viewer.py`](darwin/viewer.py) |
 | Scoring across tasks and seeds | [`darwin/evaluate.py`](darwin/evaluate.py) |
 | Model calls, cost ledger, budget cap, mock | [`darwin/llm.py`](darwin/llm.py) |
 | Web search tool | [`darwin/search.py`](darwin/search.py) |
@@ -281,9 +287,9 @@ prompts/     frozen prompts, one per kind of work
 tasks/       train/ and heldout/: issue.md, starter.py, hidden_test.py
 reference/   reference solutions (only to validate hidden tests)
 darwin/      engine, org schema, evolution, scoring, Crusoe client, You.com search, sandbox
-run.py       CLI: check, spend, once, compare, evolve (--resume)
+run.py       CLI: check, spend, once, compare, evolve (--resume), viewer
 scripts/     smoke.sh (first live check), evolve_demo.sh (live evolution, capped)
-tests/       251 offline tests, including tests/test_evolution_demo.py (narrated self-evolution): benchmark soundness, sandbox, orgs, every mutation on every org, governance, engine, live-client failures, CLI
+tests/       254 offline tests, including tests/test_evolution_demo.py (narrated self-evolution): benchmark soundness, sandbox, orgs, every mutation on every org, governance, engine, live-client failures, CLI
 runs/        outputs (gitignored)
 ```
 
