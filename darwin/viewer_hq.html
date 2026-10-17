@@ -66,6 +66,18 @@ details{margin-top:10px} summary{cursor:pointer;color:var(--muted);font-size:13p
 #exam .c{flex:1;text-align:center;padding:6px 4px;border-radius:12px;background:rgba(255,255,255,.7)}
 #exam .v{font:700 28px var(--mono);letter-spacing:-.03em}
 #exam .l{font-size:11.5px;color:var(--muted)}
+#askBtn{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:7;padding:10px 20px;border-radius:999px;font:600 15px var(--sans);color:#fff;background:var(--indigo);border:0;cursor:pointer;box-shadow:0 10px 28px rgba(100,82,234,.35)}
+#askBtn:hover{filter:brightness(1.08)} #askBtn:focus-visible{outline:3px solid #fff;outline-offset:2px}
+#ask{position:fixed;left:50%;transform:translateX(-50%);top:72px;width:min(620px,calc(100% - 32px));max-height:52vh;display:flex;flex-direction:column;padding:14px 16px;z-index:6}
+#ask[hidden]{display:none}
+.askHead{display:flex;align-items:center;gap:10px;margin-bottom:8px} .askHead b{font-size:16px;white-space:nowrap} #askMeta{font-size:12px;color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#askLog{overflow:auto;display:flex;flex-direction:column;gap:8px;font-size:14px;line-height:1.45;margin-bottom:8px}
+#askLog .q{align-self:flex-end;background:var(--indigo);color:#fff;padding:7px 12px;border-radius:14px 14px 4px 14px;max-width:85%}
+#askLog .a{align-self:flex-start;background:#f3f2fb;padding:9px 12px;border-radius:14px 14px 14px 4px;max-width:95%;white-space:pre-wrap}
+#askLog .a pre{background:#20263C;color:#e8eaf6;padding:8px 10px;border-radius:8px;overflow:auto;font-size:12.5px;white-space:pre}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px} .chips button{font-size:12.5px;padding:5px 10px;border-radius:999px;border:1px solid var(--glass-b);background:#fff;color:var(--ink);cursor:pointer}
+.chips button:hover{border-color:var(--indigo);color:var(--indigo)}
+#askForm{display:flex;gap:8px} #askIn{flex:1;font:inherit;padding:9px 12px;border-radius:10px;border:1px solid var(--glass-b);background:#fff;color:var(--ink)}
 #dock{position:fixed;left:50%;transform:translateX(-50%);bottom:20px;display:flex;gap:10px;align-items:center;padding:10px 12px}
 #caption{position:fixed;left:50%;transform:translateX(-50%);bottom:86px;max-width:min(760px,calc(100% - 820px));min-width:320px;
   padding:12px 18px;font-size:19px;line-height:1.35;text-align:center;font-weight:500;transition:opacity .3s}
@@ -74,7 +86,8 @@ details{margin-top:10px} summary{cursor:pointer;color:var(--muted);font-size:13p
 .seg button{border:0;border-radius:0;background:#fff;padding:8px 12px;font:inherit;font-size:14px;cursor:pointer;color:var(--ink)}
 .seg button[aria-pressed="true"]{background:var(--indigo);color:#fff}
 .seg button:focus-visible{outline:3px solid var(--blue);outline-offset:-3px}
-.tech{display:none} body.explain .tech{display:block}
+.tech{display:none} body.explain .tech{display:block} body.explain .story-only{display:none}
+.yaml{margin-top:10px} .yaml summary{cursor:pointer;font-size:13.5px;color:var(--indigo);font-weight:600} .yaml pre{max-height:220px;overflow:auto;margin-top:6px}
 pre.code{font:12px/1.45 var(--mono);background:#14171a;color:#e6e8e3;border-radius:10px;padding:10px 12px;overflow:auto;max-height:240px;margin:6px 0}
 pre.code .add{color:#8fe388;display:block;background:rgba(80,200,90,.12)} pre.code .del{color:#ff9a7a;display:block;background:rgba(240,100,60,.12)}
 pre.code .ctx{color:#9aa0a6;display:block}
@@ -132,6 +145,13 @@ pre.code .ctx{color:#9aa0a6;display:block}
 
 <div id="caption" class="glass" role="status" aria-live="polite"></div>
 
+<button id="askBtn" class="glass" aria-controls="ask" aria-expanded="false">💬 Ask Darwin</button>
+<section id="ask" class="glass" aria-label="Ask Darwin" hidden>
+  <div class="askHead"><b>Ask Darwin</b><span id="askMeta"></span><button class="tog" id="askClose" aria-label="Close">✕</button></div>
+  <div id="askLog" aria-live="polite"></div>
+  <div class="chips" id="askChips"></div>
+  <form id="askForm"><input id="askIn" placeholder="Ask about this run…" autocomplete="off" aria-label="Question"><button class="b primary">Ask</button></form>
+</section>
 <div id="dock" class="glass" role="toolbar" aria-label="Presentation">
   <button id="tour" class="b primary" aria-keyshortcuts="T">▶ Tour the story</button>
   <button id="overview" class="b" aria-keyshortcuts="O">Overview</button>
@@ -240,19 +260,37 @@ function say(text, opts = {}) {
   $("caption").textContent = text; $("caption").classList.add("on");
   clearTimeout(capTimer);
   capTimer = setTimeout(() => { $("caption").classList.remove("on"); }, opts.hold || 7000);
-  if (voiceOn && "speechSynthesis" in window) {
-    if (opts.interrupt || speechSynthesis.pending) speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = 1.04; u.pitch = 1.0;
-    speechSynthesis.speak(u);
-  }
+  if (!voiceOn) return;
+  if (API.tts) { elSay(text, opts); return; }
+  webSay(text, opts);
 }
-const speaking = () => voiceOn && "speechSynthesis" in window && (speechSynthesis.speaking || speechSynthesis.pending);
+function webSay(text, opts = {}) {
+  if (!("speechSynthesis" in window)) return;
+  if (opts.interrupt || speechSynthesis.pending) speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text); u.rate = 1.04; u.pitch = 1.0; speechSynthesis.speak(u);
+}
+// natural voice: ElevenLabs via `python run.py serve` (the key stays on the server)
+const API = {ask: false, tts: false, search: false}, TTS_CACHE = {};
+let elAudio = null, elBusy = false;
+async function elSay(text, opts = {}) {
+  try {
+    if (elAudio) { elAudio.pause(); elAudio = null; }
+    elBusy = true;
+    let url = TTS_CACHE[text];
+    if (!url) { const r = await fetch("/api/tts", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({text})});
+      if (!r.ok) throw new Error("tts " + r.status); url = TTS_CACHE[text] = URL.createObjectURL(await r.blob()); }
+    if (!voiceOn) { elBusy = false; return; }
+    elAudio = new Audio(url); elAudio.onended = elAudio.onerror = () => { elBusy = false; };
+    await elAudio.play();
+  } catch (e) { elBusy = false; API.tts = false; webSay(text, opts); }
+}
+if (location.protocol.startsWith("http")) fetch("/api/status").then(r => r.json()).then(j => { Object.assign(API, j); onApi(); }).catch(() => {});
+const speaking = () => voiceOn && (elBusy || ("speechSynthesis" in window && (speechSynthesis.speaking || speechSynthesis.pending)));
 $("voice").addEventListener("click", () => {
   voiceOn = !voiceOn;
   $("voice").setAttribute("aria-pressed", voiceOn);
   $("voice").textContent = voiceOn ? "🔊 Narration on" : "🔈 Narration off";
-  if (!voiceOn && "speechSynthesis" in window) speechSynthesis.cancel();
+  if (!voiceOn) { if ("speechSynthesis" in window) speechSynthesis.cancel(); if (elAudio) { elAudio.pause(); elAudio = null; } elBusy = false; }
   else say("Narration on.", {interrupt: true, hold: 2000});
 });
 
@@ -262,6 +300,36 @@ function rootOf(name) { let n = byName[name], guard = 0; while (n && n.parent &&
 function accentOf(name) { const r = String(rootOf(name)).toLowerCase(); for (const [k, c] of ORG_ACCENT) if (r.includes(k)) return c; return "#8155E8"; }
 function tintOf(name, mix) { const c = parseInt(accentOf(name).slice(1), 16); const m = (v) => Math.round(v + (255 - v) * mix);
   return (m(c >> 16 & 255) << 16) | (m(c >> 8 & 255) << 8) | m(c & 255); }
+// ---------------------------------------------------------------- Ask Darwin
+function onApi() { $("askMeta").textContent = API.ask ? `Nemotron on Crusoe${API.search ? " · You.com search on" : ""}` : "";
+  if (API.tts && voiceOn === false) $("voice").title = "Narration uses ElevenLabs"; }
+function aesc(t) { return String(t).replace(/[&<>]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;"})[c]); }
+function md(t) { return aesc(t).replace(/```(?:python)?\n?([\s\S]*?)```/g, (m, c) => `<pre>${c}</pre>`).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>"); }
+const curTask = () => String(($("taskSel") && $("taskSel").value) || "luhn").replace(/#.*$/, "");
+function askChips() {
+  const task = curTask(), sel = W.selected ? displayName(byName[W.selected] || {name: W.selected, gen: 0}) : "the winner";
+  const qs = [["Why did the winner win?", false], ["Explain this run to a 5th grader", false], [`What makes ${sel} different?`, false],
+              [`Suggest new test cases for ${task}`, true], ["How would my company use this?", false]];
+  $("askChips").innerHTML = ""; for (const [q, t] of qs) { const b = document.createElement("button"); b.type = "button"; b.textContent = q;
+    b.onclick = () => doAsk(t ? "" : q, t ? task : null, q); $("askChips").appendChild(b); }
+}
+function addMsg(cls, html) { const d = document.createElement("div"); d.className = cls; d.innerHTML = html; $("askLog").appendChild(d); $("askLog").scrollTop = 1e9; return d; }
+async function doAsk(q, testsFor, shown) {
+  addMsg("q", aesc(shown || q));
+  if (!location.protocol.startsWith("http")) { addMsg("a", "Asking needs the live server. In the repo run:\n<pre>python3 run.py serve</pre>then open the link it prints."); return; }
+  const a = addMsg("a", "Thinking…");
+  try { const r = await fetch("/api/ask", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({q, task: testsFor || curTask(), tests: !!testsFor, selected: W.selected})});
+    const j = await r.json(); if (!r.ok) throw new Error(j.error || r.status);
+    a.innerHTML = md(j.answer) + `<div style="font-size:11.5px;color:var(--muted);margin-top:6px">${aesc((j.model || "").replace(/^nvidia\//, ""))}${j.searched ? " · used You.com search" : ""} · $${(j.cost_usd || 0).toFixed(4)}</div>`;
+    if (voiceOn && !testsFor) say(j.answer.split(/(?<=[.!?])\s/).slice(0, 3).join(" "), {interrupt: true, hold: 9000});
+  } catch (e) { a.textContent = "Couldn't get an answer: " + e.message; }
+}
+$("askBtn").addEventListener("click", () => { const open = $("ask").hidden; $("ask").hidden = !open; $("askBtn").setAttribute("aria-expanded", open);
+  if (open) { askChips(); if (!$("askLog").children.length) addMsg("a", "Hi! I'm Darwin. Ask me anything about this run. I answer from its real data."); $("askIn").focus(); } });
+$("askClose").addEventListener("click", () => { $("ask").hidden = true; $("askBtn").setAttribute("aria-expanded", false); });
+$("askForm").addEventListener("submit", e => { e.preventDefault(); const q = $("askIn").value.trim(); if (!q) return; $("askIn").value = "";
+  const m = q.match(/test(?: case)?s? for (\w+)/i); doAsk(q, m ? m[1] : null, q); });
 // ---------------------------------------------------------------- panels
 for (const [btn, box] of [["brandTog", "brand"], ["evoTog", "evo"]]) {
   $(btn).addEventListener("click", () => { const min = $(box).classList.toggle("min");
@@ -406,6 +474,7 @@ function drawOrgCard(name) {
       <div class="stat"><b>$${fmt(n.cost_usd, 4)}</b><span>cost</span></div>
       <div class="stat"><b>${n.breakers ?? 0}</b><span>${T("got stuck", "breakers")}</span></div>
     </div>
+    <details class="yaml story-only"><summary>📄 See this org's file (YAML)</summary><pre class="code">${esc(orgYaml(D.orgs[name]))}</pre></details>
     ${techSection(name)}`;
   document.querySelectorAll(".ob").forEach(b => b.setAttribute("aria-current", b.dataset.org === name ? "true" : "false"));
   const tasks = [...new Set((EV[name] || []).filter(e => e.type === "start").map(e => e.task))];

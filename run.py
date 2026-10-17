@@ -231,6 +231,83 @@ def cmd_evolve(a):
     print(f"\nsaved {d}")
 
 
+def cmd_serve(a):
+    """Serve the 3D viewer locally with Ask Darwin (Nemotron) and natural narration (ElevenLabs)."""
+    import json as _json
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    import requests
+    from darwin import ask, search, viewer
+    run_dir = a.run_dir
+    if not run_dir:
+        dirs = sorted(d for d in glob.glob(os.path.join(ROOT, "runs", "*")) if os.path.isfile(os.path.join(d, "final.json")))
+        if not dirs:
+            sys.exit("no finished runs yet; run `python run.py evolve` first")
+        run_dir = max(dirs, key=lambda d: len(glob.glob(os.path.join(d, "orgs", "*"))))
+    data = viewer._load_run(run_dir)
+    page = viewer.build(run_dir, data=data)
+    el_key = os.environ.get("ELEVENLABS_API_KEY")
+    voice = os.environ.get("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
+    status = {"ask": bool(os.environ.get("CRUSOE_API_KEY")) or llm.MOCK, "tts": bool(el_key), "search": search.available()}
+
+    class H(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def _send(self, code, body, ctype="application/json"):
+            if isinstance(body, (dict, list)):
+                body = _json.dumps(body).encode()
+            self.send_response(code)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _body(self):
+            n = int(self.headers.get("Content-Length") or 0)
+            return _json.loads(self.rfile.read(min(n, 20000)) or b"{}")
+
+        def do_GET(self):
+            if self.path in ("/", "/index.html", "/viewer.html"):
+                with open(page, "rb") as f:
+                    return self._send(200, f.read(), "text/html; charset=utf-8")
+            if self.path == "/api/status":
+                return self._send(200, status)
+            self._send(404, {"error": "not found"})
+
+        def do_POST(self):
+            try:
+                b = self._body()
+                if self.path == "/api/ask":
+                    out = ask.ask(data, b.get("q", ""), task=b.get("task"), want_tests=bool(b.get("tests")))
+                    print(f"  ask: {b.get('q', '')[:60]!r} -> ${out.get('cost_usd', 0):.4f}")
+                    return self._send(200, out)
+                if self.path == "/api/tts":
+                    if not el_key:
+                        return self._send(503, {"error": "no ELEVENLABS_API_KEY"})
+                    r = requests.post(f"https://api.elevenlabs.io/v1/text-to-speech/{voice}",
+                                      headers={"xi-api-key": el_key, "Accept": "audio/mpeg"},
+                                      json={"text": str(b.get("text", ""))[:700],
+                                            "model_id": os.environ.get("ELEVENLABS_MODEL", "eleven_multilingual_v2")}, timeout=40)
+                    if r.status_code != 200:
+                        return self._send(502, {"error": f"elevenlabs {r.status_code}: {r.text[:200]}"})
+                    return self._send(200, r.content, "audio/mpeg")
+                self._send(404, {"error": "not found"})
+            except llm.BudgetExceeded as e:
+                self._send(429, {"error": f"budget reached: {e}"})
+            except Exception as e:
+                self._send(500, {"error": str(e)[:300]})
+
+    srv = ThreadingHTTPServer(("127.0.0.1", a.port), H)
+    print(f"Darwin HQ: http://localhost:{a.port}   (run: {os.path.basename(run_dir)})")
+    print(f"  Ask Darwin: {'on (Nemotron on Crusoe)' if status['ask'] else 'off (no CRUSOE_API_KEY)'}"
+          f" · You.com search: {'on' if status['search'] else 'off'} · ElevenLabs voice: {'on' if status['tts'] else 'off'}")
+    print("  Ctrl+C to stop.")
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        pass
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -240,6 +317,9 @@ def main():
     s.add_argument("run_dir", nargs="?", help="a runs/<id> directory (default: the latest evolve run)")
     s = sub.add_parser("viewer")
     s.add_argument("run_dir", nargs="?", help="a runs/<id> directory (default: the latest run)")
+    s = sub.add_parser("serve")
+    s.add_argument("run_dir", nargs="?", help="a runs/<id> directory (default: the biggest finished run)")
+    s.add_argument("--port", type=int, default=8765)
     s = sub.add_parser("once")
     s.add_argument("--org", default="hospital")
     s.add_argument("--task", default="median")
@@ -258,7 +338,7 @@ def main():
     s.add_argument("--resume", help="continue from a previous runs/<id> directory")
     a = p.parse_args()
     try:
-        {"check": cmd_check, "spend": cmd_spend, "report": cmd_report, "viewer": cmd_viewer, "once": cmd_once, "compare": cmd_compare, "evolve": cmd_evolve}[a.cmd](a)
+        {"check": cmd_check, "spend": cmd_spend, "report": cmd_report, "viewer": cmd_viewer, "serve": cmd_serve, "once": cmd_once, "compare": cmd_compare, "evolve": cmd_evolve}[a.cmd](a)
     except llm.FatalAPIError as e:
         sys.exit(f"\nSTOPPED: {e}\nEverything finished so far is saved under runs/. "
                  f"For evolve, fix the problem and continue with --resume runs/<id>.")
