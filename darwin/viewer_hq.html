@@ -602,7 +602,7 @@ const H = {
   },
 };
 const HAS3D = (() => { try { const c = document.createElement("canvas"); return typeof THREE !== "undefined" && !!(c.getContext("webgl2") || c.getContext("webgl")); } catch (e) { return false; } })();
-const W = {scene: null, renderer: null, camera: null, pods: {}, hits: [], beams: [], packets: [], podium: null,
+const W = {scene: null, renderer: null, camera: null, pods: {}, hits: [], gens: [], beams: [], packets: [], podium: null,
   orbit: {theta: -0.35, phi: 0.95, r: 80, target: null}, fly: null, idle: 0, selected: null};
 const KCOL = {spec: 0x7c5cd6, plan: 0x2f7fd0, implement: 0x3f9b3a, select: 0xd09a2a, review: 0xd2603a, verify: 0x1f9a8a};
 const RUG = [0xdfe9f5, 0xe2efd9, 0xf6ead1, 0xece2f6];
@@ -804,6 +804,7 @@ function buildWorld() {
     const GEN_INK = ["#C2562A", "#1E9B62", "#2F7FCB"], GEN_BG = ["rgba(255,236,224,.97)", "rgba(228,248,235,.97)", "rgba(226,240,253,.97)"];
     const gl = H.label(`GENERATION ${g}`, g === 0 ? GEN_SUB[0] : `${GEN_SUB[g] || "Round " + g} · ${items.filter(n => n.kept).length} kept · ${items.filter(n => !n.kept).length} out`, GEN_INK[gi % 3], GEN_BG[gi % 3], GEN_INK[gi % 3]);
     gl.scale.set(19, 5.6, 1); gl.position.set(-terW / 2 + 8, y + 2.2, z0 - 2.5); gl.material.depthTest = false; scene.add(gl);
+    W.gens.push({gen: g, items, sub: GEN_SUB[g] || `Round ${g}`, ter, label: gl, ctr: new THREE.Vector3(0, y, z0 - terD / 2), w: terW, d: terD});
     // scenery only (static, carries no data): trees and rocks along the free side margins of each floor
     { const top = y + 0.35, xs = terW / 2 - 3.2, rnd = mulberry(gi * 97 + 13);
       for (let zz = z0 - 10; zz > z0 - terD + 3; zz -= 6 + rnd() * 3) {
@@ -878,14 +879,16 @@ function buildWorld() {
   const cv = r.domElement; let drag = null, moved = 0;
   const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
   const pick = e => { const rc = cv.getBoundingClientRect(); ptr.set(((e.clientX - rc.left) / rc.width) * 2 - 1, -((e.clientY - rc.top) / rc.height) * 2 + 1);
-    ray.setFromCamera(ptr, W.camera); const h = ray.intersectObjects(W.hits, false)[0]; return h ? h.object.userData.pod : null; };
+    ray.setFromCamera(ptr, W.camera); const h = ray.intersectObjects(W.hits, false)[0]; if (h) return h.object.userData.pod;
+    const objs = W.gens.flatMap(G => [G.label, G.ter]), g = ray.intersectObjects(objs, false)[0];
+    return g ? W.gens.find(G => G.label === g.object || G.ter === g.object) : null; };
   cv.addEventListener("pointerdown", e => { drag = {x: e.clientX, y: e.clientY}; moved = 0; cv.setPointerCapture(e.pointerId); stopTour(); W.fly = null; });
   cv.addEventListener("pointermove", e => {
     if (!drag) { cv.style.cursor = pick(e) ? "pointer" : "grab"; return; }
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y; moved += Math.abs(dx) + Math.abs(dy);
     W.orbit.theta -= dx * 0.005; W.orbit.phi = Math.min(1.45, Math.max(0.2, W.orbit.phi - dy * 0.004)); drag = {x: e.clientX, y: e.clientY}; W.idle = performance.now();
   });
-  cv.addEventListener("pointerup", e => { if (drag && moved < 6) { const p = pick(e); if (p) select(p, {fly: true, narrate: true}); } drag = null; });
+  cv.addEventListener("pointerup", e => { if (drag && moved < 6) { const p = pick(e); if (typeof p === "string") select(p, {fly: true, narrate: true}); else if (p) showGen(p); } drag = null; });
   cv.addEventListener("wheel", e => { e.preventDefault(); stopTour(); W.fly = null; W.orbit.r = Math.min(500, Math.max(8, W.orbit.r * (1 + e.deltaY * 0.0012))); W.idle = performance.now(); }, {passive: false});
   addEventListener("resize", resize); resize();
   requestAnimationFrame(frame);
@@ -894,6 +897,17 @@ function buildWorld() {
 const BASE = 2.6;
 const LINK = {std: 0x76C5F8, kept: 0x36CF96, sel: 0x8D65EB, win: 0xFFC247};  // evolutionary connection colours
 function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }  // visual plinth under the staircase: geometry only, no data
+function genView(G) {
+  const phi = 0.92, theta = -0.5, w = G.w * Math.cos(-theta) * 0.9 + G.d * 0.3;
+  return {target: G.ctr.clone(), r: Math.max(30, fitDistance(w, G.d * 0.8, 6, phi) * 0.95), theta, phi};
+}
+function showGen(G) {
+  stopTour(); flyTo(genView(G));
+  const items = G.items, best = [...items].sort((a, b) => b.score - a.score)[0], kept = items.filter(n => n.kept).length;
+  const bestTxt = best ? `${displayName(best)} (${fmt(best.score)})` : "none";
+  say(G.gen === 0 ? `Generation 0 · ${G.sub}: ${items.length} human-style teams. Best in practice: ${bestTxt}.`
+                  : `Generation ${G.gen} · ${G.sub}: ${items.length} ideas tried, ${kept} kept by the gate. Best here: ${bestTxt}.`, {interrupt: true, hold: 9000});
+}
 function freeAspect() {
   // the part of the screen not covered by the side panels
   const side = innerWidth > 1180 ? 820 : innerWidth > 820 ? 440 : 0;
