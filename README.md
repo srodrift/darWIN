@@ -18,7 +18,7 @@
 
 **Results** (live on Crusoe + NVIDIA Nemotron; every number from `python run.py report`, nothing estimated)
 
-Full run `20261017-142203_evolve`: 5 human org charts, 2 generations, 15 mutants, 2 repeats per training score, 3 repeats on the final exam. Total cost about $0.11.
+Full run `20261017-142203_evolve`: 5 human org charts, 2 generations, 12 mutants, 2 repeats per training score, 3 repeats on the final exam. Total cost about $0.11.
 
 | Final exam (tasks never used for selection) | Score | Repeats | Solved | Cost |
 |---|---|---|---|---|
@@ -30,7 +30,7 @@ Earlier quick run `20261017-121423_evolve` (2 human orgs, 1 generation): best hu
 
 What we observed:
 - **In both live runs the evolved org beat the best human design on unseen tasks.** The margins are small and inside the spread between repeats, so this is early evidence, not proof; more runs and harder tasks are the next step.
-- **The gate is strict:** of 15 mutants in the full run, 1 survived (the lab spinning up an isolated skunkworks team, train 0.832 → 0.867).
+- **The gate is strict:** of 12 mutants in the full run, 1 survived (the lab spinning up an isolated skunkworks team, train 0.832 → 0.867).
 - **There is no universal best org chart:** adding a blind reviewer *helped* the hospital (quick run) but *hurt* the research lab (full run). The right structure depends on the team.
 - **Done Means Done in practice:** the hospital's attending repeatedly rejected work and looped; loop detection and the circuit breaker stopped it and paged a human (24 times in the quick run), the same "bureaucracy" failure Cockroach Labs reported for their hospital.
 
@@ -297,7 +297,7 @@ reference/   reference solutions (only to validate hidden tests)
 darwin/      engine, org schema, viewer (vendor/: three.js, MIT), evolution, scoring, Crusoe client, You.com search, sandbox
 run.py       CLI: check, spend, once, compare, evolve (--resume), report, viewer
 scripts/     smoke.sh (first live check), evolve_demo.sh (live evolution, capped)
-tests/       259 offline tests, including tests/test_evolution_demo.py (narrated self-evolution): benchmark soundness, sandbox, orgs, every mutation on every org, governance, engine, live-client failures, CLI
+tests/       260 offline tests, including tests/test_evolution_demo.py (narrated self-evolution): benchmark soundness, sandbox, orgs, every mutation on every org, governance, engine, live-client failures, CLI
 runs/        outputs (gitignored)
 ```
 

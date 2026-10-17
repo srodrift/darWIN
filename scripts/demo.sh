@@ -8,28 +8,44 @@ cd "$(dirname "$0")/.."
 PY=python3; [ -x .venv/bin/python ] && PY=.venv/bin/python
 B=$'\e[1m'; G=$'\e[32m'; D=$'\e[2m'; N=$'\e[0m'
 pause() { echo; read -r -p "${D}[enter] ${1}${N}" _; clear; }
-latest_full() { ls -d runs/*_evolve 2>/dev/null | while read -r d; do [ -f "$d/final.json" ] && echo "$d"; done | tail -1; }
+# The recorded full run: DARWIN_DEMO_RUN if set, else the finished run with the most orgs in its lineage.
+latest_full() {
+  if [ -n "${DARWIN_DEMO_RUN:-}" ]; then echo "$DARWIN_DEMO_RUN"; return; fi
+  for d in runs/*_evolve; do [ -f "$d/final.json" ] && [ -f "$d/lineage.json" ] && \
+    echo "$("$PY" -c "import json,sys;print(len(json.load(open(sys.argv[1]))))" "$d/lineage.json") $d"; done 2>/dev/null | sort -n | tail -1 | cut -d" " -f2
+}
 
 FULL=$(latest_full)   # the recorded full run, fixed before the live run starts
 clear
 echo "${B}DARWIN INC.${N}  Human org charts are generation zero."
-pause "start a live evolution on Crusoe"
+echo
+echo "Audience: which team should evolve live?"
+echo "  ${B}1${N} startup (one worker)   ${B}2${N} hospital   ${B}3${N} research lab   ${B}4${N} council of peers"
+read -r -p "pick [1-4, default 1]: " PICK
+case "${PICK:-1}" in
+  2) ORG=hospital; NAME="the teaching hospital";;
+  3) ORG=lab; NAME="the research lab";;
+  4) ORG=council; NAME="the council of peers";;
+  *) ORG=startup; NAME="the one-person startup";;
+esac
+clear
 
-# ---- 1. live mini-evolution in the background
+# ---- 1. live mini-evolution in the background, on the audience's pick
 mkdir -p runs
 LIVE_LOG=runs/live_demo.log
 before=$(ls -d runs/*_evolve 2>/dev/null | wc -l)
-DARWIN_BUDGET=0.3 DARWIN_WORKERS=6 "$PY" run.py evolve --orgs startup --generations 1 --parents 1 --children 3 \
+DARWIN_BUDGET=0.3 DARWIN_WORKERS=6 DARWIN_MAX_CONCURRENCY=12 "$PY" run.py evolve --orgs "$ORG" --generations 1 --parents 1 --children 2 \
   --seeds 1 --final-seeds 1 > "$LIVE_LOG" 2>&1 &
 LIVE_PID=$!
-echo "${G}Live evolution started on Crusoe + Nemotron (pid $LIVE_PID).${N}"
-echo "It starts from a one-person startup; an AI consultant will try 3 structural changes."
+echo "${G}Live evolution started on Crusoe + Nemotron, on ${NAME}.${N}"
+echo "An AI consultant will study where it struggles and try 2 structural changes. The gate keeps only what wins."
 echo "${D}log: $LIVE_LOG${N}"
 pause "show an org chart as code"
 
 # ---- 2. the org as code
-echo "${B}An org chart is a file.${N}  orgs/hospital.yaml"; echo
-cat orgs/hospital.yaml
+SHOW=$(ls orgs/$ORG.yaml 2>/dev/null || echo orgs/hospital.yaml)
+echo "${B}An org chart is a file.${N}  $SHOW"; echo
+cat "$SHOW"
 pause "show what evolution changed"
 
 # ---- 3. the champion's diff vs its parent (from the full run)
@@ -64,10 +80,11 @@ if kill -0 "$LIVE_PID" 2>/dev/null; then
   echo; read -r -p "${D}[enter] wait for it, or Ctrl-C to skip${N}" _
   wait "$LIVE_PID" 2>/dev/null
 fi
-echo "${B}Live run, just now:${N}"; grep -E "g1 |HELD-OUT|^flat|^org|best human|champion" "$LIVE_LOG" | head -20
+echo "${B}Live run on ${NAME}, just now:${N}"; grep -E "g1 |HELD-OUT|best human|champion|budget" "$LIVE_LOG" | head -20
+grep -q "STOPPED\|Traceback" "$LIVE_LOG" && { echo "${D}(the live run hit a problem; showing the recorded full run instead)${N}"; }
 after=$(ls -d runs/*_evolve 2>/dev/null | wc -l)
 LIVE_DIR=$(ls -d runs/*_evolve | tail -1)
-{ [ "$after" -le "$before" ] || [ "$LIVE_DIR" = "$FULL" ]; } && LIVE_DIR=$FULL
+{ [ "$after" -le "$before" ] || [ "$LIVE_DIR" = "$FULL" ] || [ ! -f "$LIVE_DIR/final.json" ]; } && LIVE_DIR=$FULL
 pause "open the 3D view"
 "$PY" run.py viewer "$LIVE_DIR" >/dev/null && open "$LIVE_DIR/viewer.html" 2>/dev/null || xdg-open "$LIVE_DIR/viewer.html" 2>/dev/null
 echo "${G}Opened $LIVE_DIR/viewer.html${N}"

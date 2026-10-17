@@ -63,7 +63,7 @@ details{margin-top:10px} summary{cursor:pointer;color:var(--muted);font-size:13p
 #dock{position:fixed;left:50%;transform:translateX(-50%);bottom:20px;display:flex;gap:10px;align-items:center;padding:10px 12px}
 #caption{position:fixed;left:50%;transform:translateX(-50%);bottom:86px;max-width:min(760px,calc(100% - 820px));min-width:320px;
   padding:12px 18px;font-size:19px;line-height:1.35;text-align:center;font-weight:500;transition:opacity .3s}
-#caption:empty{opacity:0}
+#caption{opacity:0;pointer-events:none} #caption.on{opacity:1}
 .seg{display:inline-flex;border:1px solid rgba(21,24,28,.15);border-radius:10px;overflow:hidden}
 .seg button{border:0;border-radius:0;background:#fff;padding:8px 12px;font:inherit;font-size:14px;cursor:pointer;color:var(--ink)}
 .seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
@@ -93,6 +93,8 @@ pre.code .ctx{color:#9aa0a6;display:block}
   <h1>Darwin Inc.</h1>
   <p>Human org charts are generation zero. Agents evolve past them.</p>
   <span id="mode" class="pill"></span><span id="searchPill" class="pill"></span>
+  <p id="models" style="font-size:12.5px;margin-top:8px"></p>
+  <p id="gateStat" style="font-size:13.5px;margin-top:4px;color:var(--ink)"></p>
 </header>
 
 <nav id="evo" class="glass" aria-label="Evolution lineage">
@@ -222,9 +224,9 @@ function displayName(n) { return n.gen === 0 ? pretty(n.name) : `${pretty(n.name
 let voiceOn = false, capTimer = 0;
 function say(text, opts = {}) {
   if (!text) return;
-  $("caption").textContent = text;
+  $("caption").textContent = text; $("caption").classList.add("on");
   clearTimeout(capTimer);
-  capTimer = setTimeout(() => { $("caption").textContent = ""; }, opts.hold || 7000);
+  capTimer = setTimeout(() => { $("caption").classList.remove("on"); }, opts.hold || 7000);
   if (voiceOn && "speechSynthesis" in window) {
     if (opts.interrupt || speechSynthesis.pending) speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
@@ -245,6 +247,10 @@ $("voice").addEventListener("click", () => {
 $("mode").textContent = live ? "LIVE · Crusoe + Nemotron" : (D.meta && D.meta.mode === "mock" ? "MOCK DATA · not results" : "run");
 $("mode").className = "pill " + (live ? "live" : "mock");
 $("searchPill").textContent = SEARCH_ON ? "You.com search on" : "You.com search off";
+{ const short = m => String(m || "").replace(/^nvidia\//, "").replace(/^NVIDIA-/, "").replace(/-\d+B-A\d+B$/, "");
+  if (D.meta && D.meta.worker_model) $("models").textContent = `Workers: ${short(D.meta.worker_model)} · Strategist: ${short(D.meta.meta_model)} · on Crusoe`;
+  const tried = LIN.filter(n => n.gen > 0), kept = tried.filter(n => n.kept);
+  if (tried.length) $("gateStat").innerHTML = `<b>${tried.length}</b> structural changes tried · <b>${kept.length}</b> survived the gate`; }
 $("searchPill").className = "pill " + (SEARCH_ON ? "live" : "off");
 
 function drawGens() {
@@ -626,7 +632,7 @@ function buildWorld() {
   { const c = document.createElement("canvas"); c.width = 4; c.height = 256; const g = c.getContext("2d");
     const gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, "#fbf9f5"); gr.addColorStop(1, "#e6e0d5");
     g.fillStyle = gr; g.fillRect(0, 0, 4, 256); const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace; scene.background = tx; }
-  scene.fog = new THREE.Fog(0xe9e3d8, 160, 420);
+  scene.fog = new THREE.Fog(0xe9e3d8, 420, 1000);
   scene.add(new THREE.HemisphereLight(0xfffaf2, 0xb8b2a6, 1.35));
   const sun = new THREE.DirectionalLight(0xfff4e6, 2.3); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); sun.shadow.radius = 4;
   sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03; scene.add(sun); scene.add(sun.target);
@@ -653,7 +659,7 @@ function buildWorld() {
     const ter = H.slab(terW, terD, y + 0.35, gi % 2 ? 0xe2dcd1 : 0xe9e4da, {r: 2.2, rough: .9});
     ter.position.set(0, 0, z0 - terD / 2); ter.castShadow = gi > 0; scene.add(ter);
     const gl = H.label(g === 0 ? "Generation 0" : `Generation ${g}`, g === 0 ? "human org charts" : `${items.filter(n => n.kept).length} kept · ${items.filter(n => !n.kept).length} discarded`);
-    gl.scale.set(7, 2.1, 1); gl.position.set(-terW / 2 + 5, y + 1.6, z0 - 2.5); scene.add(gl);
+    gl.scale.set(10, 3.0, 1); gl.position.set(-terW / 2 + 7, y + 2.2, z0 - 2.5); gl.material.depthTest = false; scene.add(gl);
     let rz = z0 - 7;
     rows.forEach((row, ri) => {
       let x = -rowW[ri] / 2;
@@ -728,16 +734,26 @@ function buildWorld() {
   requestAnimationFrame(frame);
 }
 
+function freeAspect() {
+  // the part of the screen not covered by the side panels
+  const side = innerWidth > 1180 ? 800 : innerWidth > 820 ? 440 : 0;
+  return Math.max(320, innerWidth - side) / innerHeight;
+}
+function fitDistance(width, depth, height, phi) {
+  const t = Math.tan(THREE.MathUtils.degToRad((W.camera ? W.camera.fov : 40) / 2));
+  const needW = width / (2 * t * freeAspect()), needD = (depth * Math.cos(phi) + height * Math.sin(phi)) / (2 * t);
+  return Math.max(needW, needD);
+}
 function overviewView() {
   const size = W.bounds.getSize(new THREE.Vector3()), ctr = W.bounds.getCenter(new THREE.Vector3());
-  const aspect = innerWidth / innerHeight, t = Math.tan(THREE.MathUtils.degToRad(20));
-  const r = Math.max(size.x / (2 * t * Math.max(1, aspect)) , size.z * 0.9) * 0.62 + 30;
-  return {target: ctr.clone().setY(ctr.y * 0.6), r: Math.min(480, r), theta: -0.32, phi: 0.92};
+  const phi = 0.78;
+  return {target: new THREE.Vector3(ctr.x, ctr.y * 0.5, ctr.z), r: Math.min(560, fitDistance(size.x, size.z, size.y, phi) * 1.08 + 10), theta: 0.0, phi};
 }
 function podView(name) {
   const p = W.pods[name]; if (!p) return null;
-  const t = p.root.position.clone(); t.y += 1.5;
-  return {target: t, r: Math.max(16, Math.max(p.L.w, p.L.d * 1.4) * 1.05 + 6), theta: -0.28, phi: 0.98};
+  const t = p.root.position.clone(); t.y += 1.2;
+  const phi = 0.95;
+  return {target: t, r: Math.max(16, fitDistance(p.L.w + 4, p.L.d + 4, 8, phi) * 1.05 + 4), theta: -0.22, phi};
 }
 function flyTo(v, ms = 1400) {
   if (!v || !W.scene) return Promise.resolve();
