@@ -28,8 +28,10 @@ Full run `20261017-142203_evolve`: 5 human org charts, 2 generations, 12 mutants
 
 Earlier quick run `20261017-121423_evolve` (2 human orgs, 1 generation): best human org (hospital) 0.830, evolved champion (hospital + blind reviewer) 0.861, baseline 0.580.
 
+Third run `20261017-144144_evolve` (same settings as the full run): the best design was a human one, the council of peers (final exam 0.792 vs baseline 0.790); one mutant was kept on practice tasks but none beat the council, so there was no evolved champion.
+
 What we observed:
-- **In both live runs the evolved org beat the best human design on unseen tasks.** The margins are small and inside the spread between repeats, so this is early evidence, not proof; more runs and harder tasks are the next step.
+- **In 2 of 3 live runs the evolved org beat the best human design on unseen tasks; in the third, no mutation beat the best human design and the gate kept it.** The margins are small and inside the spread between repeats, so this is early evidence, not proof; more runs and harder tasks are the next step.
 - **The gate is strict:** of 12 mutants in the full run, 1 survived (the lab spinning up an isolated skunkworks team, train 0.832 → 0.867).
 - **There is no universal best org chart:** adding a blind reviewer *helped* the hospital (quick run) but *hurt* the research lab (full run). The right structure depends on the team.
 - **Done Means Done in practice:** the hospital's attending repeatedly rejected work and looped; loop detection and the circuit breaker stopped it and paged a human (24 times in the quick run), the same "bureaucracy" failure Cockroach Labs reported for their hospital.
@@ -336,7 +338,7 @@ runs/        outputs (gitignored)
 ## Status and honest limits
 
 - You.com search was off in the live runs so far (no key); see [You.com](#youcom).
-- Results come from two live runs; gains are small and within the spread between repeats (see [Results](#results)). Mock-mode scores are meaningless, never reported, and every run's `meta.json` records whether it was mock or live.
+- Results come from three live runs; gains are small and within the spread between repeats (see [Results](#results)). Mock-mode scores are meaningless, never reported, and every run's `meta.json` records whether it was mock or live.
 - Ten small Python tasks are a toy benchmark. Small samples are noisy, so held-out runs use repeated seeds and report spread.
 - Org roles share prompts by design; this isolates structure but means personas carry no extra behavior.
 - The sandbox is a subprocess with a timeout, not a hardened jail. NVIDIA OpenShell/NemoClaw is the intended drop-in.
