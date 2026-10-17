@@ -13,7 +13,7 @@
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;overflow:hidden;background:#d8cdb8;color:var(--ink);font-family:var(--sans);font-size:15px}
+html,body{margin:0;height:100%;overflow:hidden;background:#1c2033;color:var(--ink);font-family:var(--sans);font-size:15px}
 #stage{position:fixed;inset:0}
 #stage canvas{display:block;width:100%;height:100%;outline:none}
 .glass{background:var(--glass);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);
@@ -657,14 +657,14 @@ function buildWorld() {
   stage.appendChild(r.domElement); r.domElement.tabIndex = 0;
   const scene = new THREE.Scene();
   { const c = document.createElement("canvas"); c.width = 4; c.height = 256; const g = c.getContext("2d");
-    const gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, "#f6efe2"); gr.addColorStop(1, "#d8cdb8");
+    const gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, "#151a2e"); gr.addColorStop(.55, "#3b3a5c"); gr.addColorStop(1, "#e3a477");
     g.fillStyle = gr; g.fillRect(0, 0, 4, 256); const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace; scene.background = tx; }
-  scene.fog = new THREE.Fog(0xd8cdb8, 420, 1000);
+  scene.fog = new THREE.Fog(0x6e5a6e, 520, 1150);
   scene.add(new THREE.HemisphereLight(0xfffaf2, 0xb8b2a6, 1.35));
   const sun = new THREE.DirectionalLight(0xfff4e6, 2.3); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); sun.shadow.radius = 4;
   sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03; scene.add(sun); scene.add(sun.target);
   const fill = new THREE.DirectionalLight(0xdfe8ff, 0.55); fill.position.set(60, 40, -30); scene.add(fill);
-  const ground = new THREE.Mesh(new THREE.CircleGeometry(600, 64), new THREE.MeshStandardMaterial({color: 0xc9c1b2, roughness: .95}));
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(600, 64), new THREE.MeshStandardMaterial({color: 0x2c3044, roughness: .95}));
   ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
   const camera = new THREE.PerspectiveCamera(40, 1, 0.5, 1200);
   Object.assign(W, {scene, renderer: r, camera, sun});
