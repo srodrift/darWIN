@@ -339,4 +339,4 @@ runs/        outputs (gitignored)
 
 ## Built at the hackathon
 
-Everything here was written on October 17, 2026 at the Recursive Agents Hackathon (Crusoe × Cerebral Valley, Shack15, San Francisco). The teaching-hospital org is our own re-implementation of the idea in Cockroach Labs' blog post; no code or prompts were copied.
+Everything here was written on October 17, 2026 at the Recursive Agents Hackathon (Crusoe × Cerebral Valley, Shack15, San Francisco). The one exception is third-party code we use but did not write: [three.js](https://threejs.org) r160 (MIT license, vendored in `darwin/vendor/` with its license) for the 3D view, plus the Python libraries in `requirements.txt`. The teaching-hospital org is our own re-implementation of the idea in Cockroach Labs' blog post; no code or prompts were copied.
