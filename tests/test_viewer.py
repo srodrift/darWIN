@@ -53,7 +53,7 @@ def test_viewer_embeds_threejs_for_offline_3d(tmp_path):
     (tmp_path / "orgs").mkdir()
     org.dump(org.load(os.path.join(ROOT, "orgs", "startup.yaml")), str(tmp_path / "orgs" / "flat_startup.yaml"))
     html = open(viewer.build(str(tmp_path))).read()
-    assert "Three.js Authors" in html and 'id="b3d"' in html
+    assert "Three.js Authors" in html and 'id="tour"' in html and 'aria-live="polite"' in html
     assert html.count("<script") == html.count("</script>")  # no early script termination
 
 
@@ -88,15 +88,15 @@ def test_any_org_renders_in_2d_and_3d(tmp_path):
         errors = []
         pg.on("pageerror", lambda e: errors.append(str(e)))
         pg.goto("file://" + path)
-        for mode in ("2d", "3d"):
-            if mode == "3d":
-                pg.click("#b3d")
-            for name, (stations, teams, gov, rtr) in expect.items():
-                r = pg.evaluate("n => { selectOrg(n); return [document.querySelectorAll('#orgmap .snode').length,"
-                                " layout.teams.length, !!layout.gov, !!layout.rtr,"
-                                " V3.on ? Object.keys(V3.stations).length : null] }", name)
-                assert r[:4] == [stations, teams, gov, rtr], (mode, name, r)
-                if mode == "3d" and pg.evaluate("V3.ok"):
-                    assert r[4] == stations, (name, r)
+        pg.wait_for_timeout(800)
+        has3d = pg.evaluate("HAS3D")
+        for name, (stations, teams, gov, rtr) in expect.items():
+            r = pg.evaluate("""n => { DARWIN.select(n); const p = DARWIN.W.pods[n];
+                return [document.getElementById('orgBody').querySelectorAll('li').length,
+                        p ? Object.keys(p.stations).length : null, p ? !!p.hub : null] }""", name)
+            assert r[0] == stations, (name, r)          # every role described in words
+            if has3d:
+                assert r[1] == stations, (name, r)      # every role drawn in 3D
+                assert r[2] == (gov or rtr), (name, r)  # governance hub when teams > 1
         b.close()
     assert not errors, errors

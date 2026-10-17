@@ -1,0 +1,866 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Darwin Inc. HQ</title>
+<style>
+:root{
+  --ink:#15181c; --muted:#5f656d; --glass:rgba(255,255,255,.82); --glass-b:rgba(21,24,28,.08);
+  --green:#2f8a2a; --green-s:#e3f2da; --violet:#6b46c1; --violet-s:#efe8fb; --red:#c2410c; --red-s:#fde8dc;
+  --gold:#b8860b; --blue:#1f5fa8;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#efece6;color:var(--ink);font-family:var(--sans);font-size:15px}
+#stage{position:fixed;inset:0}
+#stage canvas{display:block;width:100%;height:100%;outline:none}
+.glass{background:var(--glass);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);
+  border:1px solid var(--glass-b);border-radius:16px;box-shadow:0 10px 30px rgba(30,25,15,.10)}
+.sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+#brand{position:fixed;top:18px;left:20px;padding:14px 18px;max-width:420px}
+#brand h1{margin:0;font-size:26px;letter-spacing:-.02em}
+#brand p{margin:4px 0 0;color:var(--muted);font-size:14px}
+.pill{display:inline-block;font:600 11px var(--mono);padding:3px 8px;border-radius:999px;margin-top:8px;margin-right:6px}
+.pill.live{background:var(--green-s);color:var(--green)} .pill.mock{background:#fdf3d8;color:#8a5a00}
+.pill.off{background:#eceae5;color:var(--muted)}
+#evo{position:fixed;top:150px;left:20px;bottom:150px;width:330px;padding:14px 12px 12px;overflow:auto}
+#evo h2,#org h2,#exam h2{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:2px 6px 10px}
+.gen{margin:4px 0 12px}
+.gen h3{font-size:12px;margin:8px 6px 6px;color:var(--muted);font-weight:600}
+.ob{display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;width:100%;text-align:left;border:1px solid transparent;
+  background:transparent;border-radius:10px;padding:7px 8px;font:inherit;color:inherit;cursor:pointer}
+.ob:hover{background:rgba(255,255,255,.7)} .ob:focus-visible{outline:3px solid var(--blue);outline-offset:1px}
+.ob[aria-current="true"]{background:#fff;border-color:rgba(21,24,28,.18);box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.ob .ic{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff}
+.ob .nm{font-weight:600;font-size:13.5px;line-height:1.2}
+.ob .mu{display:block;font-weight:400;color:var(--muted);font-size:12px;margin-top:2px}
+.ob .sc{font:600 13px var(--mono)}
+.ob.dis .nm{color:var(--muted)} .ob.dis .sc{color:var(--muted)}
+#org{position:fixed;top:18px;right:20px;width:400px;max-height:calc(100% - 190px);overflow:auto;padding:16px 18px}
+#org .title{font-size:20px;font-weight:700;margin:0 0 4px;letter-spacing:-.01em}
+#org .verdict{font-size:13px;font-weight:600}
+#org ol{margin:10px 0 6px;padding-left:22px;line-height:1.45;font-size:14px}
+#org ol li{margin:2px 0}
+#org .gov{font-size:14px;margin:6px 0;padding:8px 10px;background:var(--violet-s);border-radius:10px}
+#org blockquote{margin:10px 0;padding:8px 12px;border-left:3px solid var(--violet);background:rgba(255,255,255,.6);border-radius:0 10px 10px 0;font-size:13.5px;color:#333}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:10px 0}
+.stat{background:rgba(255,255,255,.75);border-radius:10px;padding:8px;text-align:center}
+.stat b{display:block;font:700 17px var(--mono)} .stat span{font-size:11px;color:var(--muted)}
+.ctrl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+button.b,select{font:inherit;font-size:14px;border:1px solid rgba(21,24,28,.15);background:#fff;color:var(--ink);border-radius:10px;padding:8px 12px;cursor:pointer}
+button.b.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+button.b:focus-visible,select:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+details{margin-top:10px} summary{cursor:pointer;color:var(--muted);font-size:13px}
+#log{font:12px var(--mono);max-height:180px;overflow:auto;margin-top:6px}
+#log div{padding:2px 0;color:var(--muted)} #log div.bad{color:var(--red)} #log div.good{color:var(--green)}
+#exam{position:fixed;right:20px;bottom:20px;width:400px;padding:14px 16px}
+#exam .row{display:flex;gap:10px;justify-content:space-between}
+#exam .c{flex:1;text-align:center;padding:6px 4px;border-radius:12px;background:rgba(255,255,255,.7)}
+#exam .v{font:700 28px var(--mono);letter-spacing:-.03em}
+#exam .l{font-size:11.5px;color:var(--muted)}
+#dock{position:fixed;left:50%;transform:translateX(-50%);bottom:20px;display:flex;gap:10px;align-items:center;padding:10px 12px}
+#caption{position:fixed;left:50%;transform:translateX(-50%);bottom:86px;max-width:min(760px,calc(100% - 820px));min-width:320px;
+  padding:12px 18px;font-size:19px;line-height:1.35;text-align:center;font-weight:500;transition:opacity .3s}
+#caption:empty{opacity:0}
+#nogl{position:fixed;inset:0;display:none;place-items:center;font-size:16px;color:var(--muted)}
+@media (max-width:1180px){ #evo{display:none} #caption{max-width:calc(100% - 460px)} }
+@media (max-width:820px){ #org{left:16px;right:16px;width:auto;top:auto;bottom:150px;max-height:40%} #exam{left:16px;right:16px;width:auto}
+  #caption{max-width:calc(100% - 32px);bottom:auto;top:110px} #brand{left:16px;right:16px;max-width:none} #dock{bottom:auto;top:60px} }
+@media (prefers-color-scheme: dark){
+  html,body{background:#14171a} :root{--ink:#eef0ec;--muted:#a3a9b0;--glass:rgba(24,28,32,.82);--glass-b:rgba(255,255,255,.08);--green-s:#1d2b17;--violet-s:#241b38;--red-s:#33201a}
+  .ob:hover{background:rgba(255,255,255,.06)} .ob[aria-current="true"]{background:rgba(255,255,255,.1)} .stat,#exam .c,#org blockquote{background:rgba(255,255,255,.06)}
+  button.b,select{background:#20252a;color:var(--ink);border-color:rgba(255,255,255,.15)} button.b.primary{background:#eef0ec;color:#14171a}
+}
+</style>
+</head>
+<body>
+<div id="stage" role="img" aria-label="3D view of Darwin Inc. headquarters: each terrace is a generation of organizations, each pod an office of AI agents."></div>
+<div id="nogl" class="glass">3D needs WebGL. Everything below still works as text.</div>
+
+<header id="brand" class="glass">
+  <h1>Darwin Inc.</h1>
+  <p>Human org charts are generation zero. Agents evolve past them.</p>
+  <span id="mode" class="pill"></span><span id="searchPill" class="pill"></span>
+</header>
+
+<nav id="evo" class="glass" aria-label="Evolution lineage">
+  <h2>Evolution</h2>
+  <div id="gens"></div>
+</nav>
+
+<section id="org" class="glass" aria-labelledby="orgTitle">
+  <h2>Organization</h2>
+  <p id="orgTitle" class="title"></p>
+  <div id="orgVerdict" class="verdict"></div>
+  <div id="orgBody"></div>
+  <div class="ctrl">
+    <label for="taskSel" class="sr">Task to replay</label>
+    <select id="taskSel"></select>
+    <button id="play" class="b primary" aria-keyshortcuts="Space">▶ Replay</button>
+    <button id="step" class="b">Step</button>
+    <label for="speed" class="sr">Replay speed</label>
+    <select id="speed"><option value="1300">slow</option><option value="750" selected>normal</option><option value="320">fast</option></select>
+  </div>
+  <details><summary>Event log</summary><div id="log" aria-live="off"></div></details>
+</section>
+
+<section id="exam" class="glass" aria-labelledby="examH">
+  <h2 id="examH">Final exam · tasks evolution never saw</h2>
+  <div id="examRow" class="row"></div>
+</section>
+
+<div id="caption" class="glass" role="status" aria-live="polite"></div>
+
+<div id="dock" class="glass" role="toolbar" aria-label="Presentation">
+  <button id="tour" class="b primary" aria-keyshortcuts="T">▶ Tour the story</button>
+  <button id="overview" class="b" aria-keyshortcuts="O">Overview</button>
+  <button id="voice" class="b" aria-pressed="false" aria-keyshortcuts="N">🔈 Narration off</button>
+</div>
+
+<section id="summary" class="sr" aria-label="Run summary for screen readers"></section>
+
+<script id="data" type="application/json">/*__DATA__*/null</script>
+<script>/*__THREE__*/</script>
+<script>
+"use strict";
+const D = JSON.parse(document.getElementById("data").textContent);
+const $ = id => document.getElementById(id);
+const fmt = (x, d = 2) => (x == null || isNaN(x)) ? "–" : Number(x).toFixed(d);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const pretty = s => String(s || "").replace(/~/g, " · ").replace(/_/g, " ");
+const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const live = (D.meta && D.meta.mode) === "live";
+const SEARCH_ON = live && !!(D.meta && D.meta.search);
+
+// ---------------------------------------------------------------- data
+const LIN = (D.lineage && D.lineage.length ? D.lineage : Object.keys(D.orgs).map(k => ({name: k, gen: 0, parent: null, mutation: null, kept: true,
+  score: null, cost_usd: null, breakers: 0, errors: 0}))).filter(n => D.orgs[n.name]);
+const byName = Object.fromEntries(LIN.map(n => [n.name, n]));
+const FIN = D.final || {};
+const champion = FIN.champion || ([...LIN].filter(n => n.kept).sort((a, b) => b.score - a.score || a.cost_usd - b.cost_usd)[0] || {}).name;
+const bestHuman = FIN.best_human || null;
+const heldout = Object.fromEntries((FIN.heldout || []).map(c => [c.org, c]));
+const EV = {};
+for (const e of (D.events || [])) if (e.org && e.task && e.task !== "*") (EV[e.org] ||= []).push(e);
+const GENS = [...new Set(LIN.map(n => n.gen))].sort((a, b) => a - b);
+
+// ---------------------------------------------------------------- plain-English descriptions
+function stageText(s) {
+  const who = cap(pretty(s.id));
+  let t;
+  switch (s.kind) {
+    case "spec": t = `${who} writes the definition of done as tests`; break;
+    case "plan": t = `${who} sets the direction`; break;
+    case "implement": t = (s.parallel || 1) > 1 ? `${s.parallel} ${pretty(s.id)} clones build in parallel` : `${who} builds the fix`; break;
+    case "select": t = `${who} picks the best attempt`; break;
+    case "review":
+      t = s.blind ? `${who} reviews the evidence blind, never seeing the code`
+        : (s.voters || 1) > 1 ? `A panel of ${s.voters} (${s.rule}) reviews as ${pretty(s.id)}` : `${who} reviews the code`;
+      t += s.can_veto === false ? " (advisory only)" : " and can send it back"; break;
+    case "verify": t = `${who} runs the team's tests`; break;
+    default: t = `${who} (${s.kind})`;
+  }
+  if (s.search) t += SEARCH_ON ? ", with You.com search" : " (search off)";
+  return t;
+}
+function govText(o) {
+  if (o.teams.length < 2) return "";
+  const d = o.decide;
+  return {tests: "Evidence decides: the answer passing the most of everyone's tests ships.",
+          leader: "One leader picks which team's answer ships.",
+          council: `No single boss: a council of ${d.voters} votes on whose work ships.`,
+          router: "A dispatcher sends each task to one division."}[d.by] || d.by;
+}
+const MUT = {
+  add_review: m => "added a reviewer with veto power",
+  add_blind_review: m => "added a blind reviewer who checks the evidence but never sees the code",
+  set_panel: m => `turned ${pretty(m.stage)} into a panel of ${m.n} (${m.rule || "majority"})`,
+  remove_stage: m => `removed ${pretty(m.stage)}`,
+  toggle_blind: m => `flipped whether ${pretty(m.stage)} can see the code`,
+  toggle_veto: m => `flipped ${pretty(m.stage)}'s veto power`,
+  set_parallel: m => `had ${m.n} clones build in parallel`,
+  toggle_search: m => `toggled web search for ${pretty(m.stage)}`,
+  add_spec: m => "added a spec writer who defines done first",
+  add_verify: m => "added a step that runs the team's own tests",
+  add_skunkworks: m => "spun up an isolated skunkworks team",
+  fork_team: m => `forked ${pretty(m.team)} into a competing team`,
+  remove_team: m => `dissolved ${pretty(m.team)}`,
+  toggle_isolated: m => `cut off or reconnected ${pretty(m.team)}`,
+  set_governance: m => `switched governance to ${m.by === "council" ? `a council of ${m.n || 3}` : m.by}`,
+  toggle_shared_memory: m => "toggled instant shared memory",
+  set_max_rounds: m => `allowed ${m.n} send-backs before the circuit breaker`,
+  flip_breaker: m => "switched the breaker between paging a human and shipping",
+};
+const SHORT = {add_review: "+ reviewer", add_blind_review: "+ blind reviewer", set_panel: "review panel", remove_stage: "− role",
+  toggle_blind: "blind ↔ sighted", toggle_veto: "veto ↔", set_parallel: "× clones", toggle_search: "search ↔", add_spec: "+ spec writer",
+  add_verify: "+ test step", add_skunkworks: "+ skunkworks", fork_team: "fork team", remove_team: "− team", toggle_isolated: "isolate ↔",
+  set_governance: "new governance", toggle_shared_memory: "shared memory ↔", set_max_rounds: "loop limit", flip_breaker: "breaker ↔"};
+const mutText = m => m ? (MUT[m.op] ? MUT[m.op](m) : m.op) : "";
+const mutShort = m => m ? (m.op === "set_parallel" ? `×${m.n} clones` : SHORT[m.op] || m.op) : "";
+function displayName(n) { return n.gen === 0 ? pretty(n.name) : `${pretty(n.name.split("~")[0])} ${n.name.split("~")[1] || ""}`; }
+
+// ---------------------------------------------------------------- captions + narration
+let voiceOn = false, capTimer = 0;
+function say(text, opts = {}) {
+  if (!text) return;
+  $("caption").textContent = text;
+  clearTimeout(capTimer);
+  capTimer = setTimeout(() => { $("caption").textContent = ""; }, opts.hold || 7000);
+  if (voiceOn && "speechSynthesis" in window) {
+    if (opts.interrupt || speechSynthesis.pending) speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 1.04; u.pitch = 1.0;
+    speechSynthesis.speak(u);
+  }
+}
+const speaking = () => voiceOn && "speechSynthesis" in window && (speechSynthesis.speaking || speechSynthesis.pending);
+$("voice").addEventListener("click", () => {
+  voiceOn = !voiceOn;
+  $("voice").setAttribute("aria-pressed", voiceOn);
+  $("voice").textContent = voiceOn ? "🔊 Narration on" : "🔈 Narration off";
+  if (!voiceOn && "speechSynthesis" in window) speechSynthesis.cancel();
+  else say("Narration on.", {interrupt: true, hold: 2000});
+});
+
+// ---------------------------------------------------------------- panels
+$("mode").textContent = live ? "LIVE · Crusoe + Nemotron" : (D.meta && D.meta.mode === "mock" ? "MOCK DATA · not results" : "run");
+$("mode").className = "pill " + (live ? "live" : "mock");
+$("searchPill").textContent = SEARCH_ON ? "You.com search on" : "You.com search off";
+$("searchPill").className = "pill " + (SEARCH_ON ? "live" : "off");
+
+function drawGens() {
+  const box = $("gens"); box.innerHTML = "";
+  for (const g of GENS) {
+    const sec = document.createElement("div"); sec.className = "gen";
+    const items = LIN.filter(n => n.gen === g);
+    sec.innerHTML = `<h3>${g === 0 ? "Generation 0 · human org charts" : `Generation ${g} · ${items.filter(n => n.kept).length} kept of ${items.length}`}</h3>`;
+    for (const n of items) {
+      const b = document.createElement("button"); b.className = "ob" + (n.gen > 0 && !n.kept ? " dis" : "");
+      b.dataset.org = n.name;
+      const seed = n.gen === 0, star = n.name === champion;
+      const icon = star ? ["★", "#b8860b"] : seed ? ["H", "#6b46c1"] : n.kept ? ["✓", "#2f8a2a"] : ["✕", "#9aa0a6"];
+      const status = star ? "champion" : seed ? "human seed" : n.kept ? "kept" : "discarded";
+      b.innerHTML = `<span class="ic" style="background:${icon[1]}" aria-hidden="true">${icon[0]}</span>
+        <span class="nm">${esc(displayName(n))}${n.mutation ? `<span class="mu">${esc(mutShort(n.mutation))}</span>` : ""}</span>
+        <span class="sc">${fmt(n.score)}</span>`;
+      b.setAttribute("aria-label", `${displayName(n)}, ${status}, train score ${fmt(n.score)}${n.mutation ? ", mutation: " + mutText(n.mutation) : ""}`);
+      b.addEventListener("click", () => select(n.name, {fly: true, narrate: true}));
+      sec.appendChild(b);
+    }
+    box.appendChild(sec);
+  }
+}
+
+function drawExam() {
+  const rows = FIN.heldout || [];
+  if (!rows.length) { $("examRow").innerHTML = `<p class="l">No final exam in this run yet.</p>`; return; }
+  const role = c => c.org === champion && c.org !== bestHuman ? ["evolved", "var(--green)"] : c.org === bestHuman ? ["best human", "var(--violet)"] : ["baseline", "var(--muted)"];
+  $("examRow").innerHTML = rows.map(c => { const [r, col] = role(c);
+    return `<div class="c"><div class="v" style="color:${col}">${fmt(c.score)}</div><div class="l">${r}</div>
+      <div class="l" style="font-family:var(--mono)">${esc(pretty(c.org))}</div></div>`; }).join("");
+}
+
+function drawSummary() {
+  const parts = [`<h2>Run summary</h2><p>${live ? "Live run on Crusoe with NVIDIA Nemotron." : "Mock data, not results."} You.com search was ${SEARCH_ON ? "on" : "off"}.</p>`];
+  for (const g of GENS) {
+    parts.push(`<h3>Generation ${g}</h3><ul>`);
+    for (const n of LIN.filter(n => n.gen === g)) {
+      const o = D.orgs[n.name];
+      parts.push(`<li>${esc(displayName(n))}: ${n.gen === 0 ? "human seed" : n.kept ? "kept" : "discarded"}, train score ${fmt(n.score)}.
+        ${n.mutation ? "Mutation: " + esc(mutText(n.mutation)) + "." : ""} Structure: ${o.teams.map(t => t.stages.map(stageText).join(", then ")).join("; separately, ")}. ${esc(govText(o))}</li>`);
+    }
+    parts.push(`</ul>`);
+  }
+  if ((FIN.heldout || []).length) parts.push(`<h3>Final exam</h3><p>${FIN.heldout.map(c => `${pretty(c.org)} scored ${fmt(c.score)}`).join(", ")}.</p>`);
+  $("summary").innerHTML = parts.join("");
+}
+
+function drawOrgCard(name) {
+  const n = byName[name] || {name, gen: 0}, o = D.orgs[name];
+  $("orgTitle").textContent = (name === champion ? "★ " : "") + displayName(n);
+  const status = name === champion ? ["Evolved champion", "var(--gold)"] : n.gen === 0 ? ["Human org chart (seed)", "var(--violet)"]
+    : n.kept ? ["✓ Kept: beat its parent", "var(--green)"] : ["✕ Discarded: did not beat its parent", "var(--muted)"];
+  $("orgVerdict").innerHTML = `<span style="color:${status[1]}">${status[0]}</span>`;
+  const steps = o.teams.map(t => `${o.teams.length > 1 ? `<p style="margin:10px 0 0;font-weight:600">${esc(pretty(t.name))}${t.isolated ? " · isolated" : ""}</p>` : ""}
+      <ol>${t.stages.map(s => `<li>${esc(stageText(s))}</li>`).join("")}</ol>`).join("");
+  const ho = heldout[name];
+  const m = n.mutation;
+  $("orgBody").innerHTML = `
+    ${m ? `<blockquote><b>Meta-agent:</b> ${esc(cap(mutText(m)))} on <i>${esc(pretty(n.parent))}</i>.${m.reason ? `<br>“${esc(m.reason.length > 260 ? m.reason.slice(0, 257) + "…" : m.reason)}”` : ""}</blockquote>` : o.description ? `<p style="font-size:13.5px;color:var(--muted);margin:8px 0">${esc(o.description)}</p>` : ""}
+    ${steps}
+    ${govText(o) ? `<div class="gov">${esc(govText(o))}</div>` : ""}
+    <div class="stats">
+      <div class="stat"><b>${fmt(n.score)}</b><span>train</span></div>
+      <div class="stat"><b>${ho ? fmt(ho.score) : "–"}</b><span>final exam</span></div>
+      <div class="stat"><b>$${fmt(n.cost_usd, 4)}</b><span>cost</span></div>
+      <div class="stat"><b>${n.breakers ?? 0}</b><span>breakers</span></div>
+    </div>`;
+  document.querySelectorAll(".ob").forEach(b => b.setAttribute("aria-current", b.dataset.org === name ? "true" : "false"));
+  const tasks = [...new Set((EV[name] || []).filter(e => e.type === "start").map(e => e.task))];
+  $("taskSel").innerHTML = tasks.map(t => `<option value="${esc(t)}">${esc(t.split("#")[0])}${(D.splits || {})[t.split("#")[0]] === "heldout" ? " (final exam)" : ""}</option>`).join("") || "<option>(no recorded tasks)</option>";
+  const interesting = tasks.find(t => (EV[name] || []).some(e => e.task === t && (e.type === "reject" || e.type === "decision" || e.type === "loop_detected")));
+  if (interesting || tasks[0]) $("taskSel").value = interesting || tasks[0];
+}
+// ---------------------------------------------------------------- 3D helpers
+const H = {
+  label(text, sub, color) {
+    const c = document.createElement("canvas"); c.width = 512; c.height = 150;
+    const g = c.getContext("2d");
+    g.shadowColor = "rgba(0,0,0,0.12)"; g.shadowBlur = 14; g.shadowOffsetY = 4;
+    g.fillStyle = "rgba(255,255,255,0.96)"; g.beginPath(); g.roundRect(12, 10, 488, 118, 40); g.fill();
+    g.shadowColor = "transparent"; g.strokeStyle = color || "rgba(21,24,28,0.10)"; g.lineWidth = 3; g.stroke();
+    g.fillStyle = "#15181c"; g.font = "650 50px -apple-system, Segoe UI, Inter, sans-serif"; g.textAlign = "center";
+    g.fillText(text.length > 17 ? text.slice(0, 16) + "…" : text, 256, sub ? 66 : 84);
+    if (sub) { g.fillStyle = "#7a7f86"; g.font = "500 30px -apple-system, Segoe UI, Inter, sans-serif"; g.fillText(sub.slice(0, 30), 256, 108); }
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({map: tex, depthTest: false, transparent: true}));
+    sp.scale.set(3.6, 1.06, 1); sp.renderOrder = 10; return sp;
+  },
+  rrect(w, h, r) {
+    const s = new THREE.Shape(), x = -w / 2, y = -h / 2; r = Math.min(r, w / 2, h / 2);
+    s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r);
+    s.lineTo(x + w, y + h - r); s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    s.lineTo(x + r, y + h); s.quadraticCurveTo(x, y + h, x, y + h - r);
+    s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y); return s;
+  },
+  slab(w, d, t, color, opts = {}) {
+    const g = new THREE.ExtrudeGeometry(this.rrect(w, d, opts.r ?? 0.35), {depth: t, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.04, bevelSegments: 2, curveSegments: 10});
+    g.rotateX(-Math.PI / 2);
+    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({color, roughness: opts.rough ?? .7, metalness: opts.metal ?? 0, transparent: !!opts.opacity, opacity: opts.opacity ?? 1}));
+    m.castShadow = !opts.flat; m.receiveShadow = true; return m;
+  },
+  // An original Darwin agent: capsule body, round head, glowing visor.
+  agent(color, opts = {}) {
+    const g = new THREE.Group();
+    const bodyMat = new THREE.MeshStandardMaterial({color, roughness: .45, metalness: .05});
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.34, 0.5, 6, 18), bodyMat);
+    body.position.y = 0.75; body.castShadow = true; g.add(body);
+    const belly = new THREE.Mesh(new THREE.SphereGeometry(0.2, 18, 12), new THREE.MeshStandardMaterial({color: 0xffffff, roughness: .6}));
+    belly.scale.set(1, 1.15, .45); belly.position.set(0, 0.68, 0.27); g.add(belly);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.33, 28, 20), new THREE.MeshStandardMaterial({color: 0xf5f3ee, roughness: .35}));
+    head.position.y = 1.52; head.castShadow = true; g.add(head);
+    const visorMat = new THREE.MeshStandardMaterial({color: 0x1b2430, emissive: color, emissiveIntensity: .35, roughness: .2, metalness: .3});
+    const visor = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.32, 4, 12), visorMat);
+    visor.rotation.z = Math.PI / 2; visor.position.set(0, 1.55, 0.28); visor.scale.set(1, 1, .55); g.add(visor);
+    if (opts.blind) {
+      const band = new THREE.Mesh(new THREE.TorusGeometry(0.335, 0.075, 10, 40), new THREE.MeshStandardMaterial({color: 0x23262b, roughness: .8}));
+      band.rotation.x = Math.PI / 2; band.position.y = 1.56; g.add(band); visor.visible = false;
+    }
+    const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.22, 6), new THREE.MeshStandardMaterial({color: 0x9aa19a}));
+    ant.position.y = 1.94; g.add(ant);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 8), visorMat); tip.position.y = 2.07; g.add(tip);
+    for (const sx of [-1, 1]) {
+      const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.08, 0.32, 4, 8), bodyMat);
+      arm.position.set(sx * 0.42, 0.82, 0.08); arm.rotation.z = sx * 0.35; arm.rotation.x = -0.5; arm.castShadow = true; g.add(arm);
+    }
+    if (opts.prop === "clipboard") {
+      const cb = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.44, 0.04), new THREE.MeshStandardMaterial({color: 0xb98a55, roughness: .8}));
+      cb.position.set(0.18, 0.9, 0.42); cb.rotation.x = -0.5; g.add(cb);
+      const paper = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.34, 0.01), new THREE.MeshStandardMaterial({color: 0xffffff}));
+      paper.position.set(0.18, 0.9, 0.445); paper.rotation.x = -0.5; g.add(paper);
+    }
+    if (opts.prop === "magnifier") {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.025, 8, 24), new THREE.MeshStandardMaterial({color: 0x30343a, metalness: .6, roughness: .3}));
+      ring.position.set(0.42, 1.12, 0.4); g.add(ring);
+      const lens = new THREE.Mesh(new THREE.CircleGeometry(0.13, 20), new THREE.MeshStandardMaterial({color: 0xbfe3ff, transparent: true, opacity: .45}));
+      lens.position.copy(ring.position); g.add(lens);
+    }
+    if (opts.crown) {
+      const c = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.14, 6, 1, true), new THREE.MeshStandardMaterial({color: 0xe0b23a, metalness: .7, roughness: .3, side: THREE.DoubleSide}));
+      c.position.y = 1.86; g.add(c);
+    }
+    g.userData = {visorMat, tip, baseY: 0};
+    return g;
+  },
+  screen(w, h) {
+    const mat = new THREE.MeshStandardMaterial({color: 0x0e1620, emissive: 0x2a4a70, emissiveIntensity: .25, roughness: .2, metalness: .2, transparent: true, opacity: .9, side: THREE.DoubleSide});
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+    return {m, mat};
+  },
+};
+const HAS3D = (() => { try { const c = document.createElement("canvas"); return typeof THREE !== "undefined" && !!(c.getContext("webgl2") || c.getContext("webgl")); } catch (e) { return false; } })();
+const W = {scene: null, renderer: null, camera: null, pods: {}, hits: [], beams: [], packets: [], podium: null,
+  orbit: {theta: -0.35, phi: 0.95, r: 80, target: null}, fly: null, idle: 0, selected: null};
+const KCOL = {spec: 0x7c5cd6, plan: 0x2f7fd0, implement: 0x3f9b3a, select: 0xd09a2a, review: 0xd2603a, verify: 0x1f9a8a};
+const RUG = [0xdfe9f5, 0xe2efd9, 0xf6ead1, 0xece2f6];
+
+function orgLayout(o) {
+  const T = o.teams, multi = T.length > 1, router = multi && o.decide.by === "router";
+  const SX = 4.4, SZ = 7.4, maxS = Math.max(...T.map(t => t.stages.length));
+  const xStart = router ? 7.5 : 0, lastX = xStart + (maxS - 1) * SX;
+  const hubX = multi && !router ? lastX + 7.5 : null;
+  const minX = (router ? 0 : xStart) - 3.2, maxX = (hubX ?? lastX) + 3.2;
+  const depth = (T.length - 1) * SZ, cx = (minX + maxX) / 2;
+  return {SX, SZ, multi, router, xStart, hubX, cx, depth, w: maxX - minX, d: depth + 6,
+    pos: (ti, si) => new THREE.Vector3(xStart + si * SX - cx, 0, ti * SZ - depth / 2),
+    hub: () => new THREE.Vector3((router ? 0 : hubX) - cx, 0, 0)};
+}
+
+function station(s, color) {
+  const grp = new THREE.Group();
+  const n = Math.min(5, s.kind === "implement" ? (s.parallel || 1) : s.kind === "review" ? (s.voters || 1) : 1);
+  const spread = n > 1 ? 0.95 : 0, deskW = Math.max(2.2, n * 0.95 + 0.6);
+  if (s.kind === "review") { const b = H.slab(deskW, 0.8, 0.72, 0x6b5a4b, {r: 0.15, rough: .6}); b.position.set(0, 0, 0.8); grp.add(b); }
+  else if (s.kind === "implement" || s.kind === "select") {
+    const top = H.slab(deskW, 1.0, 0.1, 0xcaa27a, {r: 0.12, rough: .55}); top.position.set(0, 0.78, 0.7); grp.add(top);
+    for (const lx of [-deskW / 2 + 0.15, deskW / 2 - 0.15]) for (const lz of [0.32, 1.08]) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.78, 8), new THREE.MeshStandardMaterial({color: 0x5b5148}));
+      leg.position.set(lx, 0.39, lz); grp.add(leg); }
+  } else if (s.kind === "verify") {
+    const rig = H.slab(1.6, 0.9, 0.9, 0x3a4048, {r: 0.12, metal: .4, rough: .4}); rig.position.set(0.9, 0, 0.2); grp.add(rig);
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.12, 0.05), new THREE.MeshStandardMaterial({color: 0x3f9b3a, emissive: 0x3f9b3a, emissiveIntensity: .8}));
+    bar.position.set(0.9, 0.75, 0.66); grp.add(bar);
+  } else {
+    const board = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.2, 0.06), new THREE.MeshStandardMaterial({color: 0xfafafa, roughness: .5}));
+    board.position.set(0.9, 1.5, -0.55); board.castShadow = true; grp.add(board);
+    for (let k = 0; k < 4; k++) { const ln = new THREE.Mesh(new THREE.BoxGeometry(1.2 - k * 0.18, 0.05, 0.01), new THREE.MeshStandardMaterial({color}));
+      ln.position.set(0.8, 1.85 - k * 0.22, -0.515); grp.add(ln); }
+    for (const lx of [0.15, 1.65]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.0, 6), new THREE.MeshStandardMaterial({color: 0x6b6f75}));
+      leg.position.set(lx, 0.5, -0.55); grp.add(leg); }
+  }
+  const figs = [];
+  for (let k = 0; k < n; k++) {
+    const a = H.agent(color, {blind: !!s.blind, prop: s.kind === "spec" ? "clipboard" : s.kind === "review" ? "magnifier" : null});
+    a.position.set((k - (n - 1) / 2) * spread - (["spec", "plan", "verify"].includes(s.kind) ? 0.5 : 0), 0, 0);
+    if (n > 1) a.scale.setScalar(0.88);
+    a.userData.homeX = a.position.x;
+    grp.add(a); figs.push(a);
+    if (s.kind === "implement") {
+      const lap = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.03, 0.32), new THREE.MeshStandardMaterial({color: 0x2b2f35, metalness: .5, roughness: .3}));
+      lap.position.set(a.position.x, 0.9, 0.62); grp.add(lap);
+      const lid = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.3, 0.02), new THREE.MeshStandardMaterial({color: 0x2b2f35, emissive: color, emissiveIntensity: .25, metalness: .4}));
+      lid.position.set(a.position.x, 1.05, 0.47); lid.rotation.x = -0.25; grp.add(lid);
+    }
+  }
+  const sc = H.screen(Math.min(1.6, Math.max(1.1, deskW * 0.55)), 0.5); sc.m.position.set(0, 2.55, 0.1); grp.add(sc.m);
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(sc.m.geometry.parameters.width + 0.08, 0.58, 0.03), new THREE.MeshStandardMaterial({color: 0x2b2f35, metalness: .4, roughness: .4}));
+  frame.position.set(0, 2.55, 0.08); grp.add(frame);
+  if (s.kind !== "implement" && s.kind !== "review") {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 2.2, 6), new THREE.MeshStandardMaterial({color: 0x8a8f96})); pole.position.set(0, 1.4, 0.05); grp.add(pole); }
+  if (s.search && SEARCH_ON) {
+    const globe = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22, 1), new THREE.MeshStandardMaterial({color: 0x6e44ff, emissive: 0x6e44ff, emissiveIntensity: .6, wireframe: true}));
+    globe.position.set(deskW / 2 + 0.2, 2.6, 0.2); grp.add(globe); grp.userData.globe = globe; }
+  const sub = [{spec: "definition of done", plan: "direction", implement: "build", select: "pick best", review: s.blind ? "blind review" : "review", verify: "run tests"}[s.kind] || s.kind,
+    (s.parallel || 1) > 1 ? `×${s.parallel}` : "", s.kind === "review" && (s.voters || 1) > 1 ? `panel ${s.voters}` : "",
+    s.search ? (SEARCH_ON ? "You.com" : "search off") : ""].filter(Boolean).join(" · ");
+  const lb = H.label(pretty(s.id), sub); lb.position.set(0, 3.45, 0.1); lb.visible = false; grp.add(lb);
+  return {grp, figs, screen: sc.mat, label: lb};
+}
+
+function hubMesh(kind, voters) {
+  const g = new THREE.Group();
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 2.5, 0.25, 48), new THREE.MeshStandardMaterial({color: 0xd9d3c8, roughness: .7}));
+  base.position.y = 0.12; base.receiveShadow = base.castShadow = true; g.add(base);
+  const mat = new THREE.MeshStandardMaterial({color: 0xbfb6a6, roughness: .5, emissive: 0x000000});
+  const figs = [];
+  if (kind === "council") {
+    const table = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 0.12, 40), mat); table.position.y = 0.95; table.castShadow = true; g.add(table);
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.2, 0.8, 12), new THREE.MeshStandardMaterial({color: 0x5b5148})); stem.position.y = 0.5; g.add(stem);
+    const nv = Math.min(7, voters || 3);
+    for (let k = 0; k < nv; k++) { const ang = (k / nv) * Math.PI * 2 + Math.PI / 2;
+      const a = H.agent(0x8f6bd8); a.scale.setScalar(0.82); a.position.set(Math.cos(ang) * 1.55, 0.25, Math.sin(ang) * 1.55);
+      a.rotation.y = Math.atan2(-a.position.x, -a.position.z); a.userData.homeX = a.position.x; g.add(a); figs.push(a); }
+  } else if (kind === "leader") {
+    const pod = H.slab(1.3, 1.0, 1.1, 0x6b5a4b, {r: 0.15}); pod.position.set(0, 0.25, 0.7); g.add(pod);
+    const a = H.agent(0xe0b23a, {crown: true}); a.position.y = 0.25; a.userData.homeX = 0; g.add(a); figs.push(a);
+  } else if (kind === "router") {
+    const a = H.agent(0x2f7fd0); a.position.y = 0.25; a.userData.homeX = 0; g.add(a); figs.push(a);
+    for (const sx of [-1, 1]) { const cone = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.5, 12), new THREE.MeshStandardMaterial({color: 0x2f7fd0, emissive: 0x2f7fd0, emissiveIntensity: .4}));
+      cone.rotation.z = -Math.PI / 2; cone.position.set(0.9, 1.4, sx * 0.5); g.add(cone); }
+  } else {
+    const orb = new THREE.Mesh(new THREE.OctahedronGeometry(0.7, 0), new THREE.MeshStandardMaterial({color: 0x3f9b3a, emissive: 0x3f9b3a, emissiveIntensity: .45, roughness: .2, flatShading: true}));
+    orb.position.y = 1.6; orb.castShadow = true; g.add(orb); g.userData.spin = orb;
+  }
+  const label = {tests: "tests decide", leader: "leader decides", council: `council of ${voters}`, router: "router"}[kind] || kind;
+  const lb = H.label(label, kind === "router" ? "assigns one division" : "governance"); lb.position.y = 3.2; lb.visible = false; g.add(lb);
+  return {grp: g, mat, figs, label: lb};
+}
+
+function floorLine(parent, a, b, color) {
+  const g = new THREE.BufferGeometry().setFromPoints([a.clone().setY(0.18), b.clone().setY(0.18)]);
+  parent.add(new THREE.Line(g, new THREE.LineBasicMaterial({color})));
+}
+function backArc(parent, a, b) {
+  const mid = a.clone().lerp(b, .5); mid.y = 4.3 + a.distanceTo(b) * 0.22;
+  const curve = new THREE.QuadraticBezierCurve3(a.clone().setY(3.0), mid, b.clone().setY(3.0));
+  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(40)),
+    new THREE.LineDashedMaterial({color: 0xd2603a, dashSize: .5, gapSize: .35, transparent: true, opacity: .55}));
+  line.computeLineDistances(); parent.add(line);
+}
+
+function buildPod(name) {
+  const o = D.orgs[name], n = byName[name], L = orgLayout(o);
+  const root = new THREE.Group(), stations = {};
+  const isChamp = name === champion, ghost = n && n.gen > 0 && !n.kept;
+  if (isChamp) { const rim = H.slab(L.w + 2.8, L.d + 2.8, 0.18, 0xd9a520, {r: 1.6, metal: .5, rough: .35}); root.add(rim); }
+  const base = H.slab(L.w + 2, L.d + 2, 0.28, ghost ? 0xe9e6e0 : 0xfbfaf7, {r: 1.4, rough: .9}); root.add(base);
+  o.teams.forEach((t, ti) => {
+    const first = L.pos(ti, 0), last = L.pos(ti, t.stages.length - 1), mid = first.clone().lerp(last, .5);
+    const rug = H.slab(last.x - first.x + 4.0, 5.0, 0.06, RUG[ti % RUG.length], {r: 0.9, flat: true, rough: 1});
+    rug.position.set(mid.x, 0.3, mid.z); root.add(rug);
+    if (t.isolated) {
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(last.x - first.x + 4.6, 1.4, 5.6),
+        new THREE.MeshStandardMaterial({color: 0xb9a6f0, transparent: true, opacity: .16, roughness: .1, depthWrite: false}));
+      glass.position.set(mid.x, 1.0, mid.z); root.add(glass);
+      const edge = new THREE.LineSegments(new THREE.EdgesGeometry(glass.geometry), new THREE.LineBasicMaterial({color: 0x7c5cd6, transparent: true, opacity: .7}));
+      edge.position.copy(glass.position); root.add(edge);
+    }
+    t.stages.forEach((s, si) => {
+      const st = station(s, KCOL[s.kind] || 0x888888);
+      st.grp.position.copy(L.pos(ti, si)); st.grp.position.y = 0.33; root.add(st.grp);
+      stations[`${t.name}::${s.id}`] = st;
+    });
+    for (let si = 1; si < t.stages.length; si++) floorLine(root, L.pos(ti, si - 1).setY(0.3), L.pos(ti, si).setY(0.3), 0xb3ab9e);
+    for (const s of t.stages) { const tgt = s.on_reject || s.on_fail; if (!tgt) continue;
+      const a = t.stages.findIndex(x => x.id === s.id), b = t.stages.findIndex(x => x.id === tgt);
+      if (a >= 0 && b >= 0) backArc(root, L.pos(ti, a), L.pos(ti, b)); }
+  });
+  let hub = null;
+  if (L.multi) {
+    hub = hubMesh(o.decide.by, o.decide.voters); hub.grp.position.copy(L.hub()); hub.grp.position.y = 0.3; root.add(hub.grp);
+    o.teams.forEach((t, ti) => { const p = L.router ? L.pos(ti, 0) : L.pos(ti, t.stages.length - 1); floorLine(root, p, L.hub(), 0xb3ab9e); });
+  }
+  const tag = H.label((isChamp ? "★ " : "") + (n ? displayName(n) : pretty(name)), n ? `train ${fmt(n.score)}${n.gen > 0 ? " · " + (n.kept ? "kept" : "discarded") : " · human"}` : "");
+  tag.scale.set(6.2, 1.85, 1); tag.position.set(0, 6.2, -L.d / 2 + 1); tag.material.depthTest = false; root.add(tag);
+  if (ghost) root.traverse(m => { if (m.isMesh && m !== base) { m.material = m.material.clone(); m.material.transparent = true; m.material.opacity = 0.32; m.material.depthWrite = false; m.castShadow = false; }
+    if (m.isSprite && m !== tag) m.material.opacity = .5; });
+  if (ghost) tag.material.opacity = .72;
+  const hit = new THREE.Mesh(new THREE.BoxGeometry(L.w + 2, 4, L.d + 2), new THREE.MeshBasicMaterial({visible: false}));
+  hit.position.y = 2; hit.userData.pod = name; root.add(hit); W.hits.push(hit);
+  if (isChamp) {
+    const halo = new THREE.Mesh(new THREE.TorusGeometry(Math.max(L.w, L.d) * 0.62, 0.09, 8, 90),
+      new THREE.MeshStandardMaterial({color: 0xffd36a, emissive: 0xffc23a, emissiveIntensity: 1.1}));
+    halo.rotation.x = Math.PI / 2; halo.position.y = 7.6; root.add(halo); root.userData.halo = halo;
+  }
+  return {name, root, stations, hub, L, ghost, tag, isChamp};
+}
+// ---------------------------------------------------------------- the campus: an evolution staircase
+function buildWorld() {
+  const stage = $("stage");
+  const r = new THREE.WebGLRenderer({antialias: true, preserveDrawingBuffer: true});
+  r.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+  r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+  r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.0;
+  stage.appendChild(r.domElement); r.domElement.tabIndex = 0;
+  const scene = new THREE.Scene();
+  { const c = document.createElement("canvas"); c.width = 4; c.height = 256; const g = c.getContext("2d");
+    const gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, "#fbf9f5"); gr.addColorStop(1, "#e6e0d5");
+    g.fillStyle = gr; g.fillRect(0, 0, 4, 256); const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace; scene.background = tx; }
+  scene.fog = new THREE.Fog(0xe9e3d8, 160, 420);
+  scene.add(new THREE.HemisphereLight(0xfffaf2, 0xb8b2a6, 1.35));
+  const sun = new THREE.DirectionalLight(0xfff4e6, 2.3); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); sun.shadow.radius = 4;
+  sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03; scene.add(sun); scene.add(sun.target);
+  const fill = new THREE.DirectionalLight(0xdfe8ff, 0.55); fill.position.set(60, 40, -30); scene.add(fill);
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(600, 64), new THREE.MeshStandardMaterial({color: 0xe7e2d9, roughness: .95}));
+  ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+  const camera = new THREE.PerspectiveCamera(40, 1, 0.5, 1200);
+  Object.assign(W, {scene, renderer: r, camera, sun});
+
+  // terraces: each generation steps up and back
+  const TER_H = 3.4, GAP = 6, PER_ROW = 4;
+  let zCursor = 0, maxX = 0;
+  const bounds = new THREE.Box3();
+  GENS.forEach((g, gi) => {
+    let items = LIN.filter(n => n.gen === g);
+    if (gi > 0) { const order = Object.fromEntries(LIN.map((n, i) => [n.name, i]));
+      items.sort((a, b) => (order[a.parent] ?? 0) - (order[b.parent] ?? 0) || (b.kept - a.kept)); }
+    const pods = items.map(n => buildPod(n.name));
+    const rows = []; for (let i = 0; i < pods.length; i += PER_ROW) rows.push(pods.slice(i, i + PER_ROW));
+    const rowW = rows.map(row => row.reduce((s, p) => s + p.L.w + 2 + GAP, -GAP));
+    const rowD = rows.map(row => Math.max(...row.map(p => p.L.d + 2)));
+    const terW = Math.max(...rowW) + 14, terD = rowD.reduce((a, b) => a + b + 9, 0) + 6;
+    const y = gi * TER_H, z0 = zCursor;
+    const ter = H.slab(terW, terD, y + 0.35, gi % 2 ? 0xe2dcd1 : 0xe9e4da, {r: 2.2, rough: .9});
+    ter.position.set(0, 0, z0 - terD / 2); ter.castShadow = gi > 0; scene.add(ter);
+    const gl = H.label(g === 0 ? "Generation 0" : `Generation ${g}`, g === 0 ? "human org charts" : `${items.filter(n => n.kept).length} kept · ${items.filter(n => !n.kept).length} discarded`);
+    gl.scale.set(7, 2.1, 1); gl.position.set(-terW / 2 + 5, y + 1.6, z0 - 2.5); scene.add(gl);
+    let rz = z0 - 7;
+    rows.forEach((row, ri) => {
+      let x = -rowW[ri] / 2;
+      row.forEach(p => {
+        p.root.position.set(x + (p.L.w + 2) / 2, y + 0.35, rz - rowD[ri] / 2);
+        scene.add(p.root); W.pods[p.name] = p; x += p.L.w + 2 + GAP;
+      });
+      rz -= rowD[ri] + 9;
+    });
+    zCursor = z0 - terD - 1; maxX = Math.max(maxX, terW / 2);
+    bounds.expandByPoint(new THREE.Vector3(-terW / 2, 0, z0)); bounds.expandByPoint(new THREE.Vector3(terW / 2, y + 8, z0 - terD));
+  });
+
+  // lineage beams parent -> child
+  for (const n of LIN) {
+    if (!n.parent || !W.pods[n.parent] || !W.pods[n.name]) continue;
+    const a = W.pods[n.parent].root.position.clone(), b = W.pods[n.name].root.position.clone();
+    a.y += 2.2; b.y += 2.2;
+    const mid = a.clone().lerp(b, .5); mid.y = Math.max(a.y, b.y) + 7;
+    const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
+    const mat = n.kept ? new THREE.MeshStandardMaterial({color: 0x52b84a, emissive: 0x3f9b3a, emissiveIntensity: .9, transparent: true, opacity: .9})
+                       : new THREE.MeshStandardMaterial({color: 0x9aa0a6, transparent: true, opacity: .28, depthWrite: false});
+    const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 48, n.kept ? 0.16 : 0.08, 8), mat); scene.add(tube);
+    const bead = new THREE.Mesh(new THREE.SphereGeometry(n.kept ? 0.35 : 0.2, 14, 10), new THREE.MeshStandardMaterial({color: 0xffffff, emissive: n.kept ? 0x6fd060 : 0x9aa0a6, emissiveIntensity: 1}));
+    scene.add(bead);
+    let ml = null;
+    if (n.kept) { ml = H.label(mutShort(n.mutation), "kept"); ml.scale.set(4.6, 1.4, 1); ml.position.copy(curve.getPoint(.5)).add(new THREE.Vector3(0, 1.2, 0)); scene.add(ml); }
+    W.beams.push({curve, bead, kept: n.kept, child: n.name, parent: n.parent, label: ml, t0: Math.random()});
+  }
+
+  // final exam podium at the top of the staircase
+  if ((FIN.heldout || []).length) {
+    const y = GENS.length * TER_H, z = zCursor - 10;
+    const plinth = H.slab(30, 16, y + 0.4, 0xf3efe8, {r: 2.4, rough: .8}); plinth.position.set(0, 0, z); plinth.castShadow = true; scene.add(plinth);
+    const g = new THREE.Group(); g.position.set(0, y + 0.4, z); scene.add(g);
+    const t = H.label("Final exam", "tasks evolution never saw"); t.scale.set(7.5, 2.2, 1); t.position.set(0, 11.5, -2); g.add(t);
+    const rows = FIN.heldout;
+    rows.forEach((c, i) => {
+      const col = c.org === champion && c.org !== bestHuman ? 0x3f9b3a : c.org === bestHuman ? 0x6b46c1 : 0x9aa0a6;
+      const h = Math.max(0.3, c.score * 8), x = (i - (rows.length - 1) / 2) * 7.5;
+      const bar = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.6, h, 40), new THREE.MeshStandardMaterial({color: col, roughness: .35, metalness: .1, emissive: col, emissiveIntensity: .12}));
+      bar.position.set(x, h / 2, 0); bar.castShadow = true; g.add(bar); bar.userData.h = h;
+      const v = H.label(fmt(c.score), c.org === champion && c.org !== bestHuman ? "evolved" : c.org === bestHuman ? "best human" : "baseline");
+      v.scale.set(4.2, 1.3, 1); v.position.set(x, h + 1.6, 0); g.add(v);
+      const nm = H.label(pretty(c.org)); nm.scale.set(4.6, 1.3, 1); nm.position.set(x, 0.9, 2.6); g.add(nm);
+    });
+    W.podium = {grp: g, pos: new THREE.Vector3(0, y + 4, z)};
+    bounds.expandByPoint(new THREE.Vector3(-15, y + 12, z - 8));
+  }
+  W.bounds = bounds;
+  const size = bounds.getSize(new THREE.Vector3()), ctr = bounds.getCenter(new THREE.Vector3());
+  sun.position.set(ctr.x - 60, 90, ctr.z + 70); sun.target.position.copy(ctr);
+  const ext = Math.max(size.x, size.z) * 0.7 + 20;
+  Object.assign(sun.shadow.camera, {left: -ext, right: ext, top: ext, bottom: -ext, near: 1, far: 320}); sun.shadow.camera.updateProjectionMatrix();
+  W.overview = overviewView();
+  Object.assign(W.orbit, W.overview); W.orbit.target = W.overview.target.clone();
+
+  // interaction: orbit, zoom, pick
+  const cv = r.domElement; let drag = null, moved = 0;
+  const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
+  const pick = e => { const rc = cv.getBoundingClientRect(); ptr.set(((e.clientX - rc.left) / rc.width) * 2 - 1, -((e.clientY - rc.top) / rc.height) * 2 + 1);
+    ray.setFromCamera(ptr, W.camera); const h = ray.intersectObjects(W.hits, false)[0]; return h ? h.object.userData.pod : null; };
+  cv.addEventListener("pointerdown", e => { drag = {x: e.clientX, y: e.clientY}; moved = 0; cv.setPointerCapture(e.pointerId); stopTour(); W.fly = null; });
+  cv.addEventListener("pointermove", e => {
+    if (!drag) { cv.style.cursor = pick(e) ? "pointer" : "grab"; return; }
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y; moved += Math.abs(dx) + Math.abs(dy);
+    W.orbit.theta -= dx * 0.005; W.orbit.phi = Math.min(1.45, Math.max(0.2, W.orbit.phi - dy * 0.004)); drag = {x: e.clientX, y: e.clientY}; W.idle = performance.now();
+  });
+  cv.addEventListener("pointerup", e => { if (drag && moved < 6) { const p = pick(e); if (p) select(p, {fly: true, narrate: true}); } drag = null; });
+  cv.addEventListener("wheel", e => { e.preventDefault(); stopTour(); W.fly = null; W.orbit.r = Math.min(500, Math.max(8, W.orbit.r * (1 + e.deltaY * 0.0012))); W.idle = performance.now(); }, {passive: false});
+  addEventListener("resize", resize); resize();
+  requestAnimationFrame(frame);
+}
+
+function overviewView() {
+  const size = W.bounds.getSize(new THREE.Vector3()), ctr = W.bounds.getCenter(new THREE.Vector3());
+  const aspect = innerWidth / innerHeight, t = Math.tan(THREE.MathUtils.degToRad(20));
+  const r = Math.max(size.x / (2 * t * Math.max(1, aspect)) , size.z * 0.9) * 0.62 + 30;
+  return {target: ctr.clone().setY(ctr.y * 0.6), r: Math.min(480, r), theta: -0.32, phi: 0.92};
+}
+function podView(name) {
+  const p = W.pods[name]; if (!p) return null;
+  const t = p.root.position.clone(); t.y += 1.5;
+  return {target: t, r: Math.max(16, Math.max(p.L.w, p.L.d * 1.4) * 1.05 + 6), theta: -0.28, phi: 0.98};
+}
+function flyTo(v, ms = 1400) {
+  if (!v || !W.scene) return Promise.resolve();
+  if (REDUCED) ms = 0;
+  return new Promise(res => {
+    W.fly = {from: {target: W.orbit.target.clone(), r: W.orbit.r, theta: W.orbit.theta, phi: W.orbit.phi}, to: v, t0: performance.now(), ms, res};
+    if (!ms) { applyView(v); W.fly = null; res(); }
+  });
+}
+function applyView(v) { W.orbit.target.copy(v.target); W.orbit.r = v.r; W.orbit.theta = v.theta; W.orbit.phi = v.phi; }
+function resize() { if (!W.renderer) return; W.renderer.setSize(innerWidth, innerHeight, false); W.camera.aspect = innerWidth / innerHeight; W.camera.updateProjectionMatrix(); }
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  if (W.fly) {
+    const f = W.fly, k = Math.min(1, (now - f.t0) / f.ms), e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+    W.orbit.target.lerpVectors(f.from.target, f.to.target, e);
+    W.orbit.r = f.from.r + (f.to.r - f.from.r) * e; W.orbit.theta = f.from.theta + (f.to.theta - f.from.theta) * e;
+    W.orbit.phi = f.from.phi + (f.to.phi - f.from.phi) * e;
+    if (k >= 1) { const r = f.res; W.fly = null; r(); }
+  } else if (!REDUCED && !TOUR.on && now - W.idle > 9000 && !W.selected) W.orbit.theta += 0.0006;
+  const o = W.orbit, c = W.camera;
+  c.position.set(o.target.x + o.r * Math.sin(o.phi) * Math.sin(o.theta), o.target.y + o.r * Math.cos(o.phi), o.target.z + o.r * Math.sin(o.phi) * Math.cos(o.theta));
+  c.lookAt(o.target);
+  for (const p of Object.values(W.pods)) {
+    if (p.root.userData.halo) { p.root.userData.halo.rotation.z = now / 2400; p.root.userData.halo.position.y = 7.6 + 0.25 * Math.sin(now / 700); }
+    if (REDUCED) continue;
+    const near = c.position.distanceTo(p.root.position) < 140;
+    if (!near) continue;
+    for (const st of Object.values(p.stations)) {
+      st.figs.forEach((f, i) => { const u = f.userData;
+        const target = u.busy ? 0.12 + 0.1 * Math.abs(Math.sin(now / 140 + i)) : 0.02 * Math.sin(now / 700 + i * 1.7);
+        f.position.y += (target - f.position.y) * 0.25;
+        f.rotation.z = u.sad ? 0.09 * Math.sin(now / 90) : f.rotation.z * 0.85; });
+      if (st.grp.userData.globe) st.grp.userData.globe.rotation.y = now / 900;
+    }
+    if (p.hub && p.hub.grp.userData.spin) { const s = p.hub.grp.userData.spin; s.rotation.y = now / 700; s.position.y = 1.6 + 0.12 * Math.sin(now / 500); }
+  }
+  for (const b of W.beams) { const k = ((now / (b.kept ? 2600 : 5200)) + b.t0) % 1; b.bead.position.copy(b.curve.getPoint(k)); }
+  W.packets = W.packets.filter(p => {
+    const k = Math.min(1, (now - p.t0) / p.dur), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+    p.m.position.copy(p.curve.getPoint(e)); p.m.rotation.y = p.spin * e;
+    if (k >= 1) { W.scene.remove(p.m); return false; } return true;
+  });
+  W.renderer.render(W.scene, c);
+}
+// ---------------------------------------------------------------- selection + replay
+let queue = [], qi = 0, timer = 0;
+function select(name, opts = {}) {
+  if (!D.orgs[name]) return;
+  stopReplay();
+  if (W.selected && W.pods[W.selected]) setLabels(W.pods[W.selected], false);
+  W.selected = name;
+  drawOrgCard(name);
+  if (W.pods[name]) { setLabels(W.pods[name], true); resetPod(W.pods[name]); }
+  loadTask();
+  if (opts.fly) flyTo(podView(name));
+  if (opts.narrate) {
+    const n = byName[name] || {}, o = D.orgs[name];
+    say(`${displayName(n)}. ${n.mutation ? cap(mutText(n.mutation)) + ". " : ""}${n.gen > 0 ? (n.kept ? "Kept: it beat its parent." : "Discarded: it did not beat its parent.") : "A human org chart."} Train score ${fmt(n.score)}.`, {interrupt: true});
+  }
+}
+function setLabels(p, on) {
+  for (const st of Object.values(p.stations)) st.label.visible = on;
+  if (p.hub) p.hub.label.visible = on;
+}
+function stState(st, kind) {
+  const C = {active: [0x6fb6ff, 1.2, 0x2f7fd0, .9], done: [0x5fd06a, .7, 0x3f9b3a, .6], alarm: [0xff6a3d, 1.4, 0xd2603a, 1.1], idle: [null, .35, 0x2a4a70, .25]}[kind];
+  for (const f of st.figs) { const u = f.userData;
+    if (u.base == null) u.base = u.visorMat.emissive.getHex();
+    u.visorMat.emissive.setHex(C[0] == null ? u.base : C[0]); u.visorMat.emissiveIntensity = C[1];
+    u.busy = kind === "active"; u.sad = kind === "alarm"; }
+  st.screen.emissive.setHex(C[2]); st.screen.emissiveIntensity = C[3];
+}
+function resetPod(p) {
+  for (const st of Object.values(p.stations)) stState(st, "idle");
+  if (p.hub) p.hub.mat.emissive.setHex(0x000000);
+  for (const pk of W.packets) W.scene.remove(pk.m); W.packets = [];
+}
+function worldPos(obj) { return obj.getWorldPosition(new THREE.Vector3()); }
+function packet(a, b, bad) {
+  if (!a || !b || !W.scene) return;
+  const col = bad ? 0xd2603a : 0x2f7fd0;
+  const m = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.04, 0.72), new THREE.MeshStandardMaterial({color: 0xffffff, emissive: col, emissiveIntensity: bad ? .9 : .55}));
+  m.castShadow = true; W.scene.add(m);
+  const mid = a.clone().lerp(b, .5); mid.y += bad ? 5.5 + a.distanceTo(b) * .22 : 2.4;
+  const curve = new THREE.QuadraticBezierCurve3(a.clone().add(new THREE.Vector3(0, bad ? 2.6 : 1.3, 0)), mid, b.clone().add(new THREE.Vector3(0, bad ? 2.6 : 1.3, 0)));
+  W.packets.push({m, curve, t0: performance.now(), dur: Math.max(300, +$("speed").value * .9), spin: (Math.random() - .5) * 6});
+}
+function log(msg, cls) { const d = document.createElement("div"); d.textContent = msg; d.className = cls || ""; $("log").prepend(d); }
+
+function loadTask() {
+  stopReplay(); $("log").innerHTML = "";
+  if (W.selected && W.pods[W.selected]) resetPod(W.pods[W.selected]);
+  const t = $("taskSel").value; queue = (EV[W.selected] || []).filter(e => e.task === t); qi = 0;
+}
+function apply(e) {
+  const p = W.pods[W.selected]; const team = e.team || (D.orgs[W.selected].teams[0] || {}).name;
+  const st = role => p && p.stations[`${team}::${role}`];
+  const who = r => cap(pretty(r));
+  switch (e.type) {
+    case "start": log(`start · ${e.task}`); say(`Task: ${e.task.split("#")[0]}.`, {hold: 3000}); break;
+    case "stage_start": { const s = st(e.role); if (s) stState(s, "active"); break; }
+    case "stage_end": { const s = st(e.role); if (s) stState(s, e.result === "next" ? "done" : "alarm");
+      log(`${e.team ? e.team + "/" : ""}${e.role} → ${e.result}${e.tests != null ? ` (${e.tests} tests)` : ""}${e.voters > 1 ? ` (${e.approvals}/${e.voters} approve)` : ""}`, e.result === "next" ? "" : "bad"); break; }
+    case "handoff": { const a = st(e.from), b = st(e.to); if (a && b) packet(worldPos(a.grp), worldPos(b.grp)); break; }
+    case "reject": case "fail": { const a = st(e.from), b = st(e.to); if (a) stState(a, "alarm"); if (a && b) packet(worldPos(a.grp), worldPos(b.grp), true);
+      const why = (e.reason || "").replace(/[`*_]/g, "").replace(/^\s*-\s*/, "").split(/\n/)[0].slice(0, 120);
+      log(`${e.from} sent it back to ${e.to}: ${why}`, "bad");
+      say(`${who(e.from)} sent it back${why ? ": " + why : "."}`); break; }
+    case "loop_detected": { const s = st(e.role); if (s) stState(s, "alarm"); log("loop detected", "bad"); say(`Loop detected: ${pretty(e.role)} resubmitted the same work.`); break; }
+    case "breaker": log(`circuit breaker → ${e.action}`, "bad"); break;
+    case "page_human": log("PAGED A HUMAN", "bad"); say("Circuit breaker tripped. Paging a human.", {interrupt: true}); break;
+    case "search": if (e.ran === false || (e.ran === undefined && !SEARCH_ON)) log(`${e.role}: search skipped (no You.com key)`);
+      else { log(`${e.role} searched You.com`); say(`${who(e.role)} searches You.com.`); } break;
+    case "route": { if (p && p.hub) { const t = D.orgs[W.selected].teams.find(t => t.name === e.to); const s = t && p.stations[`${t.name}::${t.stages[0].id}`];
+        if (s) packet(worldPos(p.hub.grp), worldPos(s.grp)); } log(`router → ${e.to}`); say(`The router sends it to ${pretty(e.to)}.`); break; }
+    case "decision": { if (p && p.hub) { p.hub.mat.emissive.setHex(0x3f9b3a); p.hub.mat.emissiveIntensity = .5;
+        const t = D.orgs[W.selected].teams.find(t => t.name === e.picked); const s = t && p.stations[`${t.name}::${t.stages[t.stages.length - 1].id}`];
+        if (s) packet(worldPos(s.grp), worldPos(p.hub.grp)); }
+      const v = e.votes ? " (" + Object.entries(e.votes).map(([k, n]) => `${pretty(k)} ${n}`).join(", ") + ")" : "";
+      log(`decision by ${e.by}: ${e.picked}${v}`, "good"); say(`${e.by === "council" ? "The council votes" : e.by === "tests" ? "The tests decide" : "The leader decides"}: ${pretty(e.picked)} ships${v}.`); break; }
+    case "done": log(`hidden tests ${fmt(e.score)} · ${e.outcome}`, e.score >= 1 ? "good" : "");
+      say(`Hidden tests: ${Math.round(e.score * 100)} percent. ${e.outcome === "escalated" ? "Escalated to a human." : "Shipped."}`, {hold: 6000}); break;
+  }
+}
+function tick() {
+  if (speaking()) { timer = setTimeout(tick, 150); return; }
+  if (qi < queue.length) apply(queue[qi++]);
+  if (qi >= queue.length) { stopReplay(); return; }
+  timer = setTimeout(tick, +$("speed").value);
+}
+function play() { if (timer) { stopReplay(); return; } if (qi >= queue.length || qi === 0) loadTask(); $("play").textContent = "❚❚ Pause"; tick(); }
+function stopReplay() { clearTimeout(timer); timer = 0; $("play").textContent = "▶ Replay"; }
+function replayToEnd() { return new Promise(res => { play(); const w = () => (timer || speaking()) ? setTimeout(w, 200) : res(); setTimeout(w, 300); }); }
+$("play").addEventListener("click", play);
+$("step").addEventListener("click", () => { stopReplay(); if (qi >= queue.length) loadTask(); if (qi < queue.length) apply(queue[qi++]); });
+$("taskSel").addEventListener("change", loadTask);
+
+// ---------------------------------------------------------------- the guided tour (your 1-minute video in one take)
+const TOUR = {on: false, id: 0};
+function stopTour() { if (!TOUR.on) return; TOUR.on = false; TOUR.id++; $("tour").textContent = "▶ Tour the story"; }
+const pause = (ms, id) => new Promise(res => { const t0 = performance.now(); const w = () => (TOUR.id !== id) ? res() : (performance.now() - t0 >= ms && !speaking()) ? res() : setTimeout(w, 120); w(); });
+async function tour() {
+  if (TOUR.on) { stopTour(); return; }
+  TOUR.on = true; const id = ++TOUR.id; $("tour").textContent = "■ Stop tour";
+  const alive = () => TOUR.id === id;
+  const gen0 = LIN.filter(n => n.gen === 0), muts = LIN.filter(n => n.gen > 0);
+  await flyTo(W.overview, 1600); if (!alive()) return;
+  say(`Darwin Inc. Every company organizes its AI agents like a human company. These ${gen0.length} offices are human org charts: generation zero.`, {interrupt: true, hold: 9000});
+  await pause(4200, id);
+  for (const n of gen0.slice(0, 5)) { if (!alive()) return;
+    select(n.name); await flyTo(podView(n.name), 1300);
+    const o = D.orgs[n.name];
+    say(`${displayName(n)}: ${o.teams.length > 1 ? o.teams.length + " teams. " + govText(o) : o.teams[0].stages.length + " roles."} Score ${fmt(n.score)}.`, {interrupt: true});
+    await pause(2600, id); }
+  if (muts.length && alive()) {
+    await flyTo(W.overview, 1400);
+    say("A Nemotron meta-agent reads where each org failed and proposes one change to its structure. A change survives only if it measurably wins.", {interrupt: true, hold: 9000});
+    await pause(4500, id);
+    for (const n of muts.slice(0, 6)) { if (!alive()) return;
+      select(n.name); await flyTo(podView(n.name), 1200);
+      say(`${cap(mutText(n.mutation))}: ${fmt(byName[n.parent]?.score)} to ${fmt(n.score)}. ${n.kept ? "Kept." : "Discarded."}`, {interrupt: true});
+      await pause(2400, id); }
+  }
+  if (champion && alive()) {
+    select(champion); await flyTo(podView(champion), 1500);
+    const n = byName[champion] || {};
+    say(`The champion${n.mutation ? ": " + mutText(n.mutation) : ""}. Watch it work.`, {interrupt: true}); await pause(2600, id);
+    if (alive() && queue.length) await replayToEnd();
+  }
+  if (W.podium && alive()) {
+    await flyTo({target: W.podium.pos.clone(), r: 34, theta: -0.25, phi: 1.05}, 1600);
+    const rows = FIN.heldout || [];
+    const txt = rows.map(c => `${c.org === champion && c.org !== bestHuman ? "evolved" : c.org === bestHuman ? "best human org" : "baseline"} ${Math.round(c.score * 100)} percent`).join(", ");
+    say(`The final exam, on tasks evolution never saw: ${txt}.`, {interrupt: true, hold: 9000}); await pause(4500, id);
+  }
+  if (alive()) { say("Human org charts were the starting line. Built on NVIDIA Nemotron and Crusoe.", {interrupt: true}); await pause(3500, id); await flyTo(W.overview, 1600); }
+  stopTour();
+}
+$("tour").addEventListener("click", tour);
+$("overview").addEventListener("click", () => { stopTour(); flyTo(W.overview); });
+
+// ---------------------------------------------------------------- keyboard
+addEventListener("keydown", e => {
+  if (["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
+  if (e.key === "t" || e.key === "T") tour();
+  else if (e.key === "o" || e.key === "O") { stopTour(); flyTo(W.overview); }
+  else if (e.key === "n" || e.key === "N") $("voice").click();
+  else if (e.key === " " && document.activeElement.tagName !== "BUTTON") { e.preventDefault(); play(); }
+  else if (e.key === "Escape") { stopTour(); stopReplay(); }
+});
+
+// ---------------------------------------------------------------- init
+drawGens(); drawExam(); drawSummary();
+if (HAS3D) { try { buildWorld(); } catch (err) { console.error(err); $("nogl").style.display = "grid"; } }
+else $("nogl").style.display = "grid";
+window.DARWIN = {W, select, tour, flyTo, podView};
+select(champion && D.orgs[champion] ? champion : (LIN[0] || {}).name || Object.keys(D.orgs)[0]);
+if (!HAS3D) W.selected = W.selected;
+</script>
+</body>
+</html>
