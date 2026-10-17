@@ -90,7 +90,16 @@ flowchart LR
    DARWIN_BUDGET=5 python run.py evolve --generations 3 --children 2
    ```
 
-5. **Run the test suite (offline, about 40 s).**
+5. **Watch self-evolution work (offline, free, a few seconds).** A scripted world hides one rule (code is only right if someone wrote a definition of done first). Starting from the one-person startup, evolution discards a useless mutation, keeps the one that adds a spec writer, rejects a same-score-but-5x-cost mutant and a regression, then wins the held-out exam.
+   ```bash
+   python -m pytest tests/test_evolution_demo.py -v -s
+   ```
+6. **Run self-evolution live on Crusoe (capped).**
+   ```bash
+   ./scripts/evolve_demo.sh          # quick: startup + hospital, 1 generation, $0.50 cap
+   ./scripts/evolve_demo.sh full     # all 5 human orgs, 2 generations, $1 cap
+   ```
+7. **Run the whole test suite (offline, about a minute).**
    ```bash
    python -m pytest tests -q
    ```
@@ -106,6 +115,7 @@ Every run writes `runs/<id>/`: `meta.json` (live or mock, models, settings), `ev
 | Run an org on a task | [`darwin/engine.py`](darwin/engine.py) (`run`) |
 | Org schema and validation | [`darwin/org.py`](darwin/org.py) |
 | Mutations and meta-agent | [`darwin/evolve.py`](darwin/evolve.py) (`OPS`, `apply`, `meta_mutation`) |
+| Evolution loop and gate | [`darwin/evolution.py`](darwin/evolution.py) (`run`, `gate`) |
 | Scoring across tasks and seeds | [`darwin/evaluate.py`](darwin/evaluate.py) |
 | Model calls, cost ledger, budget cap, mock | [`darwin/llm.py`](darwin/llm.py) |
 | Web search tool | [`darwin/search.py`](darwin/search.py) |
@@ -271,8 +281,9 @@ prompts/     frozen prompts, one per kind of work
 tasks/       train/ and heldout/: issue.md, starter.py, hidden_test.py
 reference/   reference solutions (only to validate hidden tests)
 darwin/      engine, org schema, evolution, scoring, Crusoe client, You.com search, sandbox
-run.py       CLI: check, once, compare, evolve (--resume)
-tests/       247 offline tests: benchmark soundness, sandbox, orgs, every mutation on every org, governance, engine, live-client failures, CLI
+run.py       CLI: check, spend, once, compare, evolve (--resume)
+scripts/     smoke.sh (first live check), evolve_demo.sh (live evolution, capped)
+tests/       251 offline tests, including tests/test_evolution_demo.py (narrated self-evolution): benchmark soundness, sandbox, orgs, every mutation on every org, governance, engine, live-client failures, CLI
 runs/        outputs (gitignored)
 ```
 

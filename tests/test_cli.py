@@ -67,3 +67,10 @@ def test_bad_orgs_glob_errors():
     p = subprocess.run([sys.executable, "run.py", "compare", "--orgs", "orgs/nope/*.yaml"], cwd=ROOT,
                        env={**os.environ, "DARWIN_MOCK": "1"}, capture_output=True, text=True)
     assert p.returncode != 0 and "no org files" in p.stderr
+
+
+def test_orgs_by_name_list():
+    out = run_cli("compare", "--orgs", "startup,hospital,matrix")
+    for name in ("flat_startup", "crusoe_general", "matrix"):
+        assert name in out
+    assert "research_lab" not in out
