@@ -1,0 +1,9 @@
+name: flat_startup
+description: >
+  Scrappy startup baseline. One engineer ships it. No spec, no review.
+  If structure helps, every other org should beat this one.
+shared_memory: false
+max_rounds: 1
+on_breaker: ship
+stages:
+  - {id: engineer, kind: implement, parallel: 1}

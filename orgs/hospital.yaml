@@ -1,0 +1,13 @@
+name: crusoe_general
+description: >
+  Teaching hospital (modeled on Cockroach Labs' MOLT Sinai). Serial pipeline:
+  triage writes the definition of done, a fellow implements, an attending with
+  veto power reviews, and discharge re-runs the team's tests before shipping.
+shared_memory: false
+max_rounds: 4
+on_breaker: escalate
+stages:
+  - {id: triage, kind: spec, search: true}
+  - {id: fellow, kind: implement, parallel: 1}
+  - {id: attending, kind: review, can_veto: true, on_reject: fellow}
+  - {id: discharge, kind: verify, on_fail: fellow}

@@ -1,0 +1,14 @@
+name: research_lab
+description: >
+  University research lab. The PI sets direction, three grad students attempt
+  the problem in parallel, an undergrad writes the tests, and the PI picks the
+  best attempt. Lab meeting (shared memory) means everyone sees every finding.
+shared_memory: true
+max_rounds: 2
+on_breaker: ship
+stages:
+  - {id: pi_direction, kind: plan, search: true}
+  - {id: undergrad, kind: spec}
+  - {id: grad_students, kind: implement, parallel: 3}
+  - {id: pi_pick, kind: select, by: judge}
+  - {id: lab_meeting, kind: verify, on_fail: grad_students}
