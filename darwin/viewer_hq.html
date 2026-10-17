@@ -6,18 +6,18 @@
 <title>Darwin Inc. HQ</title>
 <style>
 :root{
-  --ink:#15181c; --muted:#5f656d; --glass:rgba(255,255,255,.96); --glass-b:rgba(21,24,28,.08);
-  --green:#2f8a2a; --green-s:#e3f2da; --violet:#6b46c1; --violet-s:#efe8fb; --red:#c2410c; --red-s:#fde8dc;
-  --gold:#b8860b; --blue:#1f5fa8;
+  --ink:#20263C; --muted:#687086; --indigo:#6452EA; --glass:rgba(255,255,255,.94); --glass-b:#E5E6F2;
+  --green:#159a5e; --green-s:#dcf5e8; --violet:#8155E8; --violet-s:#f0eafd; --red:#c2410c; --red-s:#fde8dc;
+  --gold:#c98a00; --blue:#328DDF;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;overflow:hidden;background:#1c2033;color:var(--ink);font-family:var(--sans);font-size:15px}
+html,body{margin:0;height:100%;overflow:hidden;background:linear-gradient(#A9B7F4,#C9C7F5 55%,#F5D9E6);color:var(--ink);font-family:var(--sans);font-size:15px}
 #stage{position:fixed;inset:0}
 #stage canvas{display:block;width:100%;height:100%;outline:none}
 .glass{background:var(--glass);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);
-  border:1px solid var(--glass-b);border-radius:16px;box-shadow:0 10px 30px rgba(30,25,15,.10)}
+  border:1px solid var(--glass-b);border-radius:16px;box-shadow:0 14px 40px rgba(110,112,160,.18)}
 .sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 #left{position:fixed;top:18px;left:20px;bottom:20px;width:360px;display:flex;flex-direction:column;gap:12px;pointer-events:none}
 #left>*{pointer-events:auto}
@@ -72,7 +72,7 @@ details{margin-top:10px} summary{cursor:pointer;color:var(--muted);font-size:13p
 #caption{opacity:0;pointer-events:none} #caption.on{opacity:1}
 .seg{display:inline-flex;border:1px solid rgba(21,24,28,.15);border-radius:10px;overflow:hidden}
 .seg button{border:0;border-radius:0;background:#fff;padding:8px 12px;font:inherit;font-size:14px;cursor:pointer;color:var(--ink)}
-.seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
+.seg button[aria-pressed="true"]{background:var(--indigo);color:#fff}
 .seg button:focus-visible{outline:3px solid var(--blue);outline-offset:-3px}
 .tech{display:none} body.explain .tech{display:block}
 pre.code{font:12px/1.45 var(--mono);background:#14171a;color:#e6e8e3;border-radius:10px;padding:10px 12px;overflow:auto;max-height:240px;margin:6px 0}
@@ -84,10 +84,6 @@ pre.code .ctx{color:#9aa0a6;display:block}
 @media (max-width:1180px){ #evo{display:none} #left{bottom:auto} #caption{max-width:calc(100% - 460px)} }
 @media (max-width:820px){ #org{left:16px;right:16px;width:auto;top:auto;bottom:150px;max-height:40%} #exam{left:16px;right:16px;width:auto}
   #caption{max-width:calc(100% - 32px);bottom:auto;top:110px} #brand{left:16px;right:16px;max-width:none} #dock{bottom:auto;top:60px} }
-@media (prefers-color-scheme: dark){
-  html,body{background:#14171a} :root{--ink:#eef0ec;--muted:#a3a9b0;--glass:rgba(24,28,32,.82);--glass-b:rgba(255,255,255,.08);--green-s:#1d2b17;--violet-s:#241b38;--red-s:#33201a}
-  .ob:hover{background:rgba(255,255,255,.06)} .ob[aria-current="true"]{background:rgba(255,255,255,.1)} .stat,#exam .c,#org blockquote{background:rgba(255,255,255,.06)}
-  button.b,select{background:#20252a;color:var(--ink);border-color:rgba(255,255,255,.15)} button.b.primary{background:#eef0ec;color:#14171a}
 }
 </style>
 </head>
@@ -211,7 +207,7 @@ const MUT = {
   remove_stage: m => `removed ${pretty(m.stage)}`,
   toggle_blind: m => `flipped whether ${pretty(m.stage)} can see the code`,
   toggle_veto: m => `flipped ${pretty(m.stage)}'s veto power`,
-  set_parallel: m => `had ${m.n} clones build in parallel`,
+  set_parallel: m => m.n ? `had ${m.n} clones build in parallel` : `changed how many clones build in parallel`,
   toggle_search: m => `toggled web search for ${pretty(m.stage)}`,
   add_spec: m => "added a spec writer who defines done first",
   add_verify: m => "added a step that runs the team's own tests",
@@ -229,7 +225,7 @@ const SHORT = {add_review: "+ reviewer", add_blind_review: "+ blind reviewer", s
   add_verify: "+ test step", add_skunkworks: "+ skunkworks", fork_team: "fork team", remove_team: "− team", toggle_isolated: "isolate ↔",
   set_governance: "new governance", toggle_shared_memory: "shared memory ↔", set_max_rounds: "loop limit", flip_breaker: "breaker ↔"};
 const mutText = m => m ? (MUT[m.op] ? MUT[m.op](m) : m.op) : "";
-const mutShort = m => m ? (m.op === "set_parallel" ? `×${m.n} clones` : SHORT[m.op] || m.op) : "";
+const mutShort = m => m ? (m.op === "set_parallel" ? (m.n ? `×${m.n} clones` : "parallel clones") : SHORT[m.op] || m.op) : "";
 function displayName(n) {
   if (n.gen === 0) return cap(pretty(n.name));
   const tag = (n.name.split("~")[1] || "").match(/g(\d+)([a-z]+)(\d*)/);
@@ -260,6 +256,12 @@ $("voice").addEventListener("click", () => {
   else say("Narration on.", {interrupt: true, hold: 2000});
 });
 
+// org identity: every org inherits the accent of the human org chart it descends from
+const ORG_ACCENT = [["council", "#8057E7"], ["crusoe", "#328DDF"], ["research", "#24B77A"], ["skunk", "#FF796A"], ["startup", "#F2B544"], ["flat", "#F2B544"]];
+function rootOf(name) { let n = byName[name], guard = 0; while (n && n.parent && byName[n.parent] && guard++ < 50) n = byName[n.parent]; return n ? n.name : name; }
+function accentOf(name) { const r = String(rootOf(name)).toLowerCase(); for (const [k, c] of ORG_ACCENT) if (r.includes(k)) return c; return "#8155E8"; }
+function tintOf(name, mix) { const c = parseInt(accentOf(name).slice(1), 16); const m = (v) => Math.round(v + (255 - v) * mix);
+  return (m(c >> 16 & 255) << 16) | (m(c >> 8 & 255) << 8) | m(c & 255); }
 // ---------------------------------------------------------------- panels
 for (const [btn, box] of [["brandTog", "brand"], ["evoTog", "evo"]]) {
   $(btn).addEventListener("click", () => { const min = $(box).classList.toggle("min");
@@ -285,7 +287,7 @@ function drawGens() {
       const b = document.createElement("button"); b.className = "ob" + (n.gen > 0 && !n.kept ? " dis" : "");
       b.dataset.org = n.name;
       const seed = n.gen === 0, star = n.name === champion;
-      const icon = star ? ["★", "#b8860b"] : seed ? ["H", "#6b46c1"] : n.kept ? ["✓", "#2f8a2a"] : ["✕", "#9aa0a6"];
+      const icon = star ? ["★", "#b8860b"] : seed ? [pretty(n.name).trim()[0].toUpperCase(), accentOf(n.name)] : n.kept ? ["✓", "#2f8a2a"] : ["✕", "#9aa0a6"];
       const status = star ? "champion" : seed ? "human seed" : n.kept ? "kept" : "discarded";
       b.innerHTML = `<span class="ic" style="background:${icon[1]}" aria-hidden="true">${icon[0]}</span>
         <span class="nm">${esc(displayName(n))}${n.mutation ? `<span class="mu">${esc(mutShort(n.mutation))}</span>` : ""}</span>
@@ -416,15 +418,15 @@ function drawOrgCard(name) {
 }
 // ---------------------------------------------------------------- 3D helpers
 const H = {
-  label(text, sub, color) {
+  label(text, sub, color, bg, ink) {
     const c = document.createElement("canvas"); c.width = 512; c.height = 150;
     const g = c.getContext("2d");
     g.shadowColor = "rgba(0,0,0,0.12)"; g.shadowBlur = 14; g.shadowOffsetY = 4;
-    g.fillStyle = "rgba(255,255,255,0.96)"; g.beginPath(); g.roundRect(12, 10, 488, 118, 40); g.fill();
-    g.shadowColor = "transparent"; g.strokeStyle = color || "rgba(21,24,28,0.10)"; g.lineWidth = 3; g.stroke();
-    g.fillStyle = "#15181c"; g.font = "650 50px -apple-system, Segoe UI, Inter, sans-serif"; g.textAlign = "center";
+    g.fillStyle = bg || "rgba(255,255,255,0.96)"; g.beginPath(); g.roundRect(12, 10, 488, 118, 40); g.fill();
+    g.shadowColor = "transparent"; g.strokeStyle = color || "rgba(21,24,28,0.10)"; g.lineWidth = color ? 7 : 3; g.stroke();
+    g.fillStyle = ink || "#20263C"; g.font = "650 50px -apple-system, Segoe UI, Inter, sans-serif"; g.textAlign = "center";
     g.fillText(text.length > 17 ? text.slice(0, 16) + "…" : text, 256, sub ? 66 : 84);
-    if (sub) { g.fillStyle = "#7a7f86"; g.font = "500 30px -apple-system, Segoe UI, Inter, sans-serif"; g.fillText(sub.slice(0, 30), 256, 108); }
+    if (sub) { g.fillStyle = "#555a66"; g.font = "550 30px -apple-system, Segoe UI, Inter, sans-serif"; g.fillText(sub.slice(0, 30), 256, 108); }
     const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({map: tex, depthTest: false, transparent: true}));
     sp.scale.set(3.6, 1.06, 1); sp.renderOrder = 10; return sp;
@@ -436,8 +438,47 @@ const H = {
     s.lineTo(x + r, y + h); s.quadraticCurveTo(x, y + h, x, y + h - r);
     s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y); return s;
   },
+  tree(rnd, k = 1) {
+    if (!this._tree) { this._tree = {trunk: new THREE.CylinderGeometry(0.16, 0.24, 1.3, 7), leaf: new THREE.IcosahedronGeometry(1, 3),
+      bark: new THREE.MeshStandardMaterial({color: 0x9a7356, roughness: .9}),
+      leaves: [0x6cc76a, 0x58b860, 0x86d57a, 0x63c271].map(c => new THREE.MeshStandardMaterial({color: c, roughness: .8}))}; }
+    const T = this._tree, g = new THREE.Group(), s = (0.75 + rnd() * 0.5) * k, mat = T.leaves[Math.floor(rnd() * T.leaves.length)];
+    const tr = new THREE.Mesh(T.trunk, T.bark); tr.position.y = 0.65; tr.castShadow = true; g.add(tr);
+    const blobs = rnd() < 0.5 ? [[0, 1.75, 0, 0.95]] : [[0, 1.6, 0, 0.8], [0.35, 2.25, 0.1, 0.6], [-0.3, 2.05, -0.2, 0.55]];
+    for (const [x, yy, z, r] of blobs) { const m = new THREE.Mesh(T.leaf, mat); m.position.set(x, yy, z); m.scale.setScalar(r); m.castShadow = true; g.add(m); }
+    g.scale.setScalar(s); g.rotation.y = rnd() * 6.28; return g;
+  },
+  laptop() {
+    if (!this._lap) this._lap = {base: new THREE.BoxGeometry(0.5, 0.03, 0.34), lid: new THREE.BoxGeometry(0.5, 0.32, 0.025),
+      body: new THREE.MeshStandardMaterial({color: 0xd9dce6, roughness: .35, metalness: .4}), scr: new THREE.MeshStandardMaterial({color: 0x26304a, emissive: 0x4a6cc4, emissiveIntensity: .35, roughness: .2})};
+    const L = this._lap, g = new THREE.Group(), b = new THREE.Mesh(L.base, L.body); b.castShadow = true; g.add(b);
+    const lid = new THREE.Mesh(L.lid, L.body); lid.position.set(0, 0.16, -0.17); lid.rotation.x = 0.22; lid.castShadow = true; g.add(lid);
+    const sc = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.27), L.scr); sc.position.set(0, 0.16, -0.155); sc.rotation.x = 0.22; g.add(sc);
+    g.rotation.y = Math.PI; return g;
+  },
+  plant() {
+    if (!this._plant) this._plant = {pot: new THREE.CylinderGeometry(0.17, 0.13, 0.3, 14), potM: new THREE.MeshStandardMaterial({color: 0xe9e4f5, roughness: .6}),
+      leaf: new THREE.SphereGeometry(0.22, 14, 10), leafM: new THREE.MeshStandardMaterial({color: 0x5cbf63, roughness: .7})};
+    const P = this._plant, g = new THREE.Group(), pot = new THREE.Mesh(P.pot, P.potM); pot.position.y = 0.15; pot.castShadow = true; g.add(pot);
+    for (const [x, y, z, r] of [[0, .42, 0, 1], [.1, .55, .05, .7], [-.09, .52, -.04, .75]]) { const l = new THREE.Mesh(P.leaf, P.leafM); l.position.set(x, y, z); l.scale.setScalar(r); l.castShadow = true; g.add(l); }
+    return g;
+  },
+  cloud(rnd) {
+    if (!this._cloud) this._cloud = {geo: new THREE.SphereGeometry(1, 20, 14), mat: new THREE.MeshLambertMaterial({color: 0xf7f2ff, emissive: 0xd9d2f2, emissiveIntensity: .35, transparent: true, opacity: .5, depthWrite: false})};
+    const g = new THREE.Group();
+    for (let i = 0; i < 9; i++) { const m = new THREE.Mesh(this._cloud.geo, this._cloud.mat), r = 4 + rnd() * 5;
+      m.scale.set(r * 1.8, r * 0.45, r * 1.2); m.position.set((i - 3) * 4.2 + (rnd() - .5) * 2, (rnd() - .3) * 2.5, (rnd() - .5) * 4); g.add(m); }
+    return g;
+  },
+  rocks(rnd) {
+    if (!this._rock) this._rock = {geo: new THREE.DodecahedronGeometry(1, 0), mat: new THREE.MeshStandardMaterial({color: 0xb7b5d6, roughness: .85, flatShading: true})};
+    const g = new THREE.Group();
+    for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(this._rock.geo, this._rock.mat); const r = 0.35 + rnd() * 0.45;
+      m.scale.set(r, r * 0.75, r); m.position.set((rnd() - .5) * 1.6, r * 0.5, (rnd() - .5) * 1.6); m.rotation.set(rnd(), rnd() * 3, 0); m.castShadow = true; g.add(m); }
+    return g;
+  },
   slab(w, d, t, color, opts = {}) {
-    const g = new THREE.ExtrudeGeometry(this.rrect(w, d, opts.r ?? 0.35), {depth: t, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.04, bevelSegments: 2, curveSegments: 10});
+    const g = new THREE.ExtrudeGeometry(this.rrect(w, d, opts.r ?? 0.35), {depth: t, bevelEnabled: true, bevelThickness: opts.bevel ?? 0.04, bevelSize: opts.bevel ?? 0.04, bevelSegments: opts.bevel ? 5 : 2, curveSegments: opts.bevel ? 16 : 10});
     g.rotateX(-Math.PI / 2);
     const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({color, roughness: opts.rough ?? .7, metalness: opts.metal ?? 0, transparent: !!opts.opacity, opacity: opts.opacity ?? 1}));
     m.castShadow = !opts.flat; m.receiveShadow = true; return m;
@@ -519,6 +560,7 @@ function station(s, color) {
     for (const lx of [-deskW / 2 + 0.15, deskW / 2 - 0.15]) for (const lz of [0.32, 1.08]) {
       const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.78, 8), new THREE.MeshStandardMaterial({color: 0x5b5148}));
       leg.position.set(lx, 0.39, lz); grp.add(leg); }
+    for (let k = 0; k < n; k++) { const lap = H.laptop(); lap.position.set((k - (n - 1) / 2) * spread, 0.88, 0.62); grp.add(lap); }
   } else if (s.kind === "verify") {
     const rig = H.slab(1.6, 0.9, 0.9, 0x3a4048, {r: 0.12, metal: .4, rough: .4}); rig.position.set(0.9, 0, 0.2); grp.add(rig);
     const bar = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.12, 0.05), new THREE.MeshStandardMaterial({color: 0x3f9b3a, emissive: 0x3f9b3a, emissiveIntensity: .8}));
@@ -557,6 +599,7 @@ function station(s, color) {
     (s.parallel || 1) > 1 ? `×${s.parallel}` : "", s.kind === "review" && (s.voters || 1) > 1 ? `panel ${s.voters}` : "",
     s.search ? (SEARCH_ON ? "You.com" : "search off") : ""].filter(Boolean).join(" · ");
   const lb = H.label(pretty(s.id), sub); lb.position.set(0, 3.45, 0.1); lb.visible = false; grp.add(lb);
+  { const pl = H.plant(); pl.position.set(-deskW / 2 - 0.35, 0, 0.9); grp.add(pl); }
   return {grp, figs, screen: sc.mat, label: lb};
 }
 
@@ -606,7 +649,7 @@ function buildPod(name) {
   const root = new THREE.Group(), stations = {};
   const isChamp = name === champion, ghost = n && n.gen > 0 && !n.kept;
   if (isChamp) { const rim = H.slab(L.w + 2.8, L.d + 2.8, 0.18, 0xd9a520, {r: 1.6, metal: .5, rough: .35}); root.add(rim); }
-  const tint = isChamp ? 0xffe9a8 : !n || n.gen === 0 ? 0xddd0fb : ghost ? 0xeeece8 : 0xc8ecb8;
+  const tint = isChamp ? 0xFFF0C7 : !n ? 0xe6dcff : tintOf(name, ghost ? .6 : n.gen === 0 ? .38 : .42);
   const base = H.slab(L.w + 2, L.d + 2, 0.28, tint, {r: 1.4, rough: .9}); root.add(base);
   o.teams.forEach((t, ti) => {
     const first = L.pos(ti, 0), last = L.pos(ti, t.stages.length - 1), mid = first.clone().lerp(last, .5);
@@ -634,16 +677,16 @@ function buildPod(name) {
     hub = hubMesh(o.decide.by, o.decide.voters); hub.grp.position.copy(L.hub()); hub.grp.position.y = 0.3; root.add(hub.grp);
     o.teams.forEach((t, ti) => { const p = L.router ? L.pos(ti, 0) : L.pos(ti, t.stages.length - 1); floorLine(root, p, L.hub(), 0xb3ab9e); });
   }
-  const tag = H.label((isChamp ? "★ " : "") + (n ? displayName(n) : pretty(name)), n ? `train ${fmt(n.score)}${n.gen > 0 ? " · " + (n.kept ? "kept" : "discarded") : " · human"}` : "");
-  tag.scale.set(9.3, 2.8, 1); tag.position.set(0, 7.0, -L.d / 2 + 1); tag.material.depthTest = false; root.add(tag);
-  if (ghost) root.traverse(m => { if (m.isMesh && m !== base) { m.material = m.material.clone(); m.material.transparent = true; m.material.opacity = 0.32; m.material.depthWrite = false; m.castShadow = false; }
-    if (m.isSprite && m !== tag) m.material.opacity = .5; });
-  if (ghost) tag.material.opacity = .72;
+  const tag = H.label((isChamp ? "★ " : "") + (n ? displayName(n) : pretty(name)), n ? `train ${fmt(n.score)}${n.gen > 0 ? " · " + (n.kept ? "kept" : "discarded") : " · human"}` : "", isChamp ? "#FFB938" : null);
+  tag.scale.set(14, 4.15, 1); tag.position.set(0, 7.9, -L.d / 2 + 1); tag.material.depthTest = false; root.add(tag);
+  if (ghost) root.traverse(m => { if (m.isMesh && m !== base) { m.material = m.material.clone(); m.material.transparent = true; m.material.opacity = 0.7; m.material.depthWrite = false; m.castShadow = false; }
+    if (m.isSprite && m !== tag) m.material.opacity = .8; });
+  if (ghost) tag.material.opacity = .9;
   const hit = new THREE.Mesh(new THREE.BoxGeometry(L.w + 2, 4, L.d + 2), new THREE.MeshBasicMaterial({visible: false}));
   hit.position.y = 2; hit.userData.pod = name; root.add(hit); W.hits.push(hit);
   if (isChamp) {
-    const halo = new THREE.Mesh(new THREE.TorusGeometry(Math.max(L.w, L.d) * 0.62, 0.09, 8, 90),
-      new THREE.MeshStandardMaterial({color: 0xffd36a, emissive: 0xffc23a, emissiveIntensity: 1.1}));
+    const halo = new THREE.Mesh(new THREE.TorusGeometry(Math.max(L.w, L.d) * 0.62, 0.13, 8, 90),
+      new THREE.MeshStandardMaterial({color: 0xFFBF47, emissive: 0xFFBF47, emissiveIntensity: .8}));
     halo.rotation.x = Math.PI / 2; halo.position.y = 7.6; root.add(halo); root.userData.halo = halo;
   }
   return {name, root, stations, hub, L, ghost, tag, isChamp};
@@ -654,20 +697,21 @@ function buildWorld() {
   const r = new THREE.WebGLRenderer({antialias: true, preserveDrawingBuffer: true});
   r.setPixelRatio(Math.min(2, devicePixelRatio || 1));
   r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
-  r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.0;
+  r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.NoToneMapping;
   stage.appendChild(r.domElement); r.domElement.tabIndex = 0;
   const scene = new THREE.Scene();
   { const c = document.createElement("canvas"); c.width = 4; c.height = 256; const g = c.getContext("2d");
-    const gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, "#151a2e"); gr.addColorStop(.55, "#3b3a5c"); gr.addColorStop(1, "#e3a477");
+    const gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, "#A9B7F4"); gr.addColorStop(.55, "#C9C7F5"); gr.addColorStop(1, "#F5D9E6");
     g.fillStyle = gr; g.fillRect(0, 0, 4, 256); const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace; scene.background = tx; }
-  scene.fog = new THREE.Fog(0x6e5a6e, 520, 1150);
-  scene.add(new THREE.HemisphereLight(0xfffaf2, 0xb8b2a6, 1.35));
-  const sun = new THREE.DirectionalLight(0xfff4e6, 2.3); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); sun.shadow.radius = 4;
+  
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8C91BC, 1.45));
+  const sun = new THREE.DirectionalLight(0xFFE6BF, 2.1); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); sun.shadow.radius = 6; sun.shadow.blurSamples = 16;
   sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03; scene.add(sun); scene.add(sun.target);
-  const fill = new THREE.DirectionalLight(0xdfe8ff, 0.55); fill.position.set(60, 40, -30); scene.add(fill);
-  const ground = new THREE.Mesh(new THREE.CircleGeometry(600, 64), new THREE.MeshStandardMaterial({color: 0x2c3044, roughness: .95}));
-  ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
-  const camera = new THREE.PerspectiveCamera(40, 1, 0.5, 1200);
+  const fill = new THREE.DirectionalLight(0xbfd0ff, 0.35); fill.position.set(60, 40, -30); scene.add(fill);
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(4000, 64), new THREE.ShadowMaterial({color: 0x8C91BC, opacity: .32}));
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -BASE - 1.2;
+ ground.receiveShadow = true; scene.add(ground);
+  const camera = new THREE.PerspectiveCamera(34, 1, 0.5, 6000);
   Object.assign(W, {scene, renderer: r, camera, sun});
 
   // terraces: each generation steps up and back
@@ -684,11 +728,22 @@ function buildWorld() {
     const rowD = rows.map(row => Math.max(...row.map(p => p.L.d + 2)));
     const terW = Math.max(...rowW) + 14, terD = rowD.reduce((a, b) => a + b + 9, 0) + 6;
     const y = gi * TER_H, z0 = zCursor;
-    const TER = [0xe8d9bd, 0xcfe1c7, 0xc9dbea, 0xe2d1ea, 0xf0dcc4];
-    const ter = H.slab(terW, terD, y + 0.35, TER[gi % TER.length], {r: 2.2, rough: .85});
-    ter.position.set(0, 0, z0 - terD / 2); ter.castShadow = gi > 0; scene.add(ter);
-    const gl = H.label(g === 0 ? "Generation 0" : `Generation ${g}`, g === 0 ? "human org charts" : `${items.filter(n => n.kept).length} kept · ${items.filter(n => !n.kept).length} discarded`);
-    gl.scale.set(15, 4.5, 1); gl.position.set(-terW / 2 + 7, y + 2.2, z0 - 2.5); gl.material.depthTest = false; scene.add(gl);
+    const TER = [0xFFBF98, 0xA5E8BB, 0xA8D7FA, 0xc9b8f5, 0xffd49a];
+    const ter = H.slab(terW, terD, y + 0.35 + BASE - 0.6, TER[gi % TER.length], {r: 3.2, rough: .62, bevel: 0.6});
+    ter.position.set(0, -BASE, z0 - terD / 2); ter.castShadow = gi > 0; scene.add(ter);
+    const GEN_SUB = ["Human organizations", "Adaptation", "Intelligence"];
+    const GEN_INK = ["#C2562A", "#1E9B62", "#2F7FCB"], GEN_BG = ["rgba(255,236,224,.97)", "rgba(228,248,235,.97)", "rgba(226,240,253,.97)"];
+    const gl = H.label(`GENERATION ${g}`, g === 0 ? GEN_SUB[0] : `${GEN_SUB[g] || "Round " + g} · ${items.filter(n => n.kept).length} kept · ${items.filter(n => !n.kept).length} out`, GEN_INK[gi % 3], GEN_BG[gi % 3], GEN_INK[gi % 3]);
+    gl.scale.set(19, 5.6, 1); gl.position.set(-terW / 2 + 8, y + 2.2, z0 - 2.5); gl.material.depthTest = false; scene.add(gl);
+    // scenery only (static, carries no data): trees and rocks along the free side margins of each floor
+    { const top = y + 0.35, xs = terW / 2 - 3.2, rnd = mulberry(gi * 97 + 13);
+      for (let zz = z0 - 10; zz > z0 - terD + 3; zz -= 6 + rnd() * 3) {
+        for (const side of [-1, 1]) { if (rnd() < 0.15) continue;
+          const t = H.tree(rnd, 1.7); t.position.set(side * (xs + rnd() * 1.0), top, zz); scene.add(t); } }
+      for (const [sx, sz] of [[-1, -1], [1, -1], [1, 0]]) { const zz = sz < 0 ? z0 - terD + 2.6 : z0 - 2.6;
+        if (sx < 0 && sz === 0) continue; const k = H.rocks(rnd); k.scale.setScalar(1.9); k.position.set(sx * (terW / 2 - 2.4), top, zz); scene.add(k); }
+      // a few trees on the ground beside the staircase
+      for (const side of [-1, 1]) for (let i = 0; i < 4; i++) { const t = H.tree(rnd, 2.7); t.position.set(side * (terW / 2 + 7 + rnd() * 12), -BASE - 1.2, z0 - terD * rnd()); scene.add(t); } }
     let rz = z0 - 7;
     rows.forEach((row, ri) => {
       let x = -rowW[ri] / 2;
@@ -709,14 +764,14 @@ function buildWorld() {
     a.y += 2.2; b.y += 2.2;
     const mid = a.clone().lerp(b, .5); mid.y = Math.max(a.y, b.y) + 7;
     const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
-    const mat = n.kept ? new THREE.MeshStandardMaterial({color: 0x52b84a, emissive: 0x3f9b3a, emissiveIntensity: .9, transparent: true, opacity: .9})
-                       : new THREE.MeshStandardMaterial({color: 0x9aa0a6, transparent: true, opacity: .28, depthWrite: false});
-    const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 48, n.kept ? 0.16 : 0.08, 8), mat); scene.add(tube);
+    const win = n.name === champion, base = win ? LINK.win : n.kept ? LINK.kept : LINK.std;
+    const mat = new THREE.MeshStandardMaterial({color: base, emissive: base, emissiveIntensity: win ? .6 : n.kept ? .45 : .25, transparent: true, opacity: win || n.kept ? .95 : .6, depthWrite: win || n.kept});
+    const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 48, win ? 0.32 : n.kept ? 0.24 : 0.13, 8), mat); scene.add(tube);
     const bead = new THREE.Mesh(new THREE.SphereGeometry(n.kept ? 0.35 : 0.2, 14, 10), new THREE.MeshStandardMaterial({color: 0xffffff, emissive: n.kept ? 0x6fd060 : 0x9aa0a6, emissiveIntensity: 1}));
     scene.add(bead);
     let ml = null;
     if (n.kept) { ml = H.label(mutShort(n.mutation), "kept"); ml.scale.set(4.6, 1.4, 1); ml.position.copy(curve.getPoint(.5)).add(new THREE.Vector3(0, 1.2, 0)); scene.add(ml); }
-    W.beams.push({curve, bead, kept: n.kept, child: n.name, parent: n.parent, label: ml, t0: Math.random()});
+    W.beams.push({curve, bead, kept: n.kept, child: n.name, parent: n.parent, label: ml, t0: Math.random(), mat, base, win});
   }
 
   // final exam podium at the top of the staircase
@@ -739,6 +794,10 @@ function buildWorld() {
     bounds.expandByPoint(new THREE.Vector3(-15, y + 12, z - 8));
   }
   W.bounds = bounds;
+  { const sz = bounds.getSize(new THREE.Vector3()), cc = bounds.getCenter(new THREE.Vector3()), rnd = mulberry(31);
+    const isl = H.slab(sz.x + 44, sz.z + 40, 3.2, 0xbfe3b0, {r: 14, rough: .9, bevel: 1.2}); isl.position.set(cc.x, -BASE - 1.2 - 3.2 - 1.2, cc.z + 4); isl.castShadow = false; scene.add(isl);
+    const rim = H.slab(sz.x + 46, sz.z + 42, 9, 0xd9cbb4, {r: 15, rough: 1}); rim.position.set(cc.x, -BASE - 1.2 - 3.2 - 10, cc.z + 4); scene.add(rim);
+ }
   const size = bounds.getSize(new THREE.Vector3()), ctr = bounds.getCenter(new THREE.Vector3());
   sun.position.set(ctr.x - 60, 90, ctr.z + 70); sun.target.position.copy(ctr);
   const ext = Math.max(size.x, size.z) * 0.7 + 20;
@@ -763,6 +822,9 @@ function buildWorld() {
   requestAnimationFrame(frame);
 }
 
+const BASE = 2.6;
+const LINK = {std: 0x76C5F8, kept: 0x36CF96, sel: 0x8D65EB, win: 0xFFC247};  // evolutionary connection colours
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }  // visual plinth under the staircase: geometry only, no data
 function freeAspect() {
   // the part of the screen not covered by the side panels
   const side = innerWidth > 1180 ? 820 : innerWidth > 820 ? 440 : 0;
@@ -775,8 +837,9 @@ function fitDistance(width, depth, height, phi) {
 }
 function overviewView() {
   const size = W.bounds.getSize(new THREE.Vector3()), ctr = W.bounds.getCenter(new THREE.Vector3());
-  const phi = 0.78;
-  return {target: new THREE.Vector3(ctr.x, ctr.y * 0.5, ctr.z), r: Math.min(560, fitDistance(size.x, size.z, size.y, phi) * 1.08 + 10), theta: 0.0, phi};
+  const phi = 0.98, theta = -0.62;  // three-quarter view: shows tops, platform thickness and the steps
+  const w = Math.abs(size.x * Math.cos(theta)) + Math.abs(size.z * Math.sin(theta)), d = Math.abs(size.x * Math.sin(theta)) + Math.abs(size.z * Math.cos(theta));
+  return {target: new THREE.Vector3(ctr.x, ctr.y * 0.5, ctr.z), r: Math.min(900, fitDistance(w * 0.8, d * 0.62, size.y, phi) * 0.95), theta, phi};
 }
 function podView(name) {
   const p = W.pods[name]; if (!p) return null;
@@ -793,7 +856,12 @@ function flyTo(v, ms = 1400) {
   });
 }
 function applyView(v) { W.orbit.target.copy(v.target); W.orbit.r = v.r; W.orbit.theta = v.theta; W.orbit.phi = v.phi; }
-function resize() { if (!W.renderer) return; W.renderer.setSize(innerWidth, innerHeight, false); W.camera.aspect = innerWidth / innerHeight; W.camera.updateProjectionMatrix(); }
+function resize() { if (!W.renderer) return; W.renderer.setSize(innerWidth, innerHeight, false); W.camera.aspect = innerWidth / innerHeight;
+  const rect = id => { const e = document.getElementById(id); if (!e || e.classList.contains("min") && false) return null; const r = e.getBoundingClientRect(); return r.width ? r : null; };
+  let ox = 0, oy = 0;
+  if (innerWidth > 820) { const L = rect("left"), Rr = rect("org"); const lw = L ? L.right : 0, rw = Rr ? innerWidth - Rr.left : 0; ox = (rw - lw) / 2; }
+  const D = rect("dock"); if (D) oy = (innerHeight - D.top) / 2;
+  W.camera.setViewOffset(innerWidth, innerHeight, ox, oy, innerWidth, innerHeight); W.camera.updateProjectionMatrix(); }
 
 function frame(now) {
   requestAnimationFrame(frame);
@@ -836,6 +904,7 @@ function select(name, opts = {}) {
   stopReplay();
   if (W.selected && W.pods[W.selected]) setLabels(W.pods[W.selected], false);
   W.selected = name;
+  for (const b of W.beams) { const on = !b.win && (b.child === name || b.parent === name); b.mat.color.setHex(on ? LINK.sel : b.base); b.mat.emissive.setHex(on ? LINK.sel : b.base); b.mat.opacity = on || b.win || b.kept ? .95 : .6; }
   drawOrgCard(name);
   if (W.pods[name]) { setLabels(W.pods[name], true); resetPod(W.pods[name]); }
   loadTask();
