@@ -112,7 +112,16 @@ flowchart LR
    python run.py viewer              # latest run
    open runs/<id>/viewer.html
    ```
-9. **Run the whole test suite (offline, about a minute).**
+9. **Present it live: Darwin HQ with Ask Darwin and a natural voice.**
+   ```bash
+   python run.py serve               # biggest finished run; or: python run.py serve runs/<id>
+   # open http://localhost:8765
+   ```
+   - **Ask Darwin** (button at the top): ask anything about the run ("Why did the winner win?", "Explain this to a 5th grader") or click **Suggest new test cases** for the task on screen. Answers come from Nemotron 3 Super on Crusoe, grounded only in the run's own data; each answer shows its model and cost. Questions about the outside world add You.com results when `YDC_API_KEY` is set. If the model is unreachable (no key, no Wi-Fi, slow API), Darwin answers from the run's numbers and labels it "offline answer", so a demo never stalls.
+   - **Natural narration**: with `ELEVENLABS_API_KEY` in `.env`, the tour and answers are read by an ElevenLabs voice (`ELEVENLABS_VOICE_ID` to change it); without it, the browser's built-in voice is used.
+   - Click a **pod** to open that org (its YAML is one click away on the card), click a **generation floor** to fly to it and hear its summary, press **F** for the final exam.
+   - Keys stay on the local server; the page never sees them.
+10. **Run the whole test suite (offline, about a minute).**
    ```bash
    python -m pytest tests -q
    ```
@@ -285,7 +294,7 @@ All model calls go to Crusoe Managed Inference's OpenAI-compatible endpoint (`ht
 
 Search is a structural property, not a default: a stage gets `search: true` in its org file, and the `toggle_search` mutation lets evolution decide which roles benefit from research. Results come from `POST https://ydc-index.io/v1/search` and are passed to the role as references.
 
-**Status, honestly:** the integration is built and tested, but the live runs so far had **no `YDC_API_KEY`, so no search happened in them.** Without a key, Darwin records `search skipped (no You.com key)` and the viewer labels those roles "search off"; it never shows a search that did not run. Each run's `meta.json` records whether search was on.
+**Status, honestly:** the integration is built and tested, but the recorded evolution runs had **no `YDC_API_KEY`, so no search happened in them.** Ask Darwin (`python run.py serve`) uses You.com for outside-world questions when the key is set. Without a key, Darwin records `search skipped (no You.com key)` and the viewer labels those roles "search off"; it never shows a search that did not run. Each run's `meta.json` records whether search was on.
 
 ---
 
@@ -318,6 +327,9 @@ runs/        outputs (gitignored)
 | `DARWIN_MOCK` | no | `1` runs offline with a fake model |
 | `DARWIN_WORKERS` | no (default 4) | Tasks run in parallel per evaluation |
 | `DARWIN_MAX_CONCURRENCY` | no (default 12) | Cap on simultaneous model calls across teams, clones and voters |
+| `ELEVENLABS_API_KEY` | no | Natural narration in `run.py serve` |
+| `ELEVENLABS_VOICE_ID` | no | ElevenLabs voice for narration |
+| `DARWIN_ASK_TIMEOUT` | no (default 30) | Seconds before Ask Darwin falls back to an offline answer |
 
 ---
 
