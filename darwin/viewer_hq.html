@@ -1118,7 +1118,24 @@ function play() { if (timer) { stopReplay(); return; } if (qi >= queue.length ||
 function stopReplay() { clearTimeout(timer); timer = 0; $("play").textContent = "▶ Replay"; }
 function replayToEnd() { return new Promise(res => { play(); const w = () => (timer || speaking()) ? setTimeout(w, 200) : res(); setTimeout(w, 300); }); }
 $("play").addEventListener("click", play);
-$("step").addEventListener("click", () => { stopReplay(); if (qi >= queue.length) loadTask(); if (qi < queue.length) apply(queue[qi++]); });
+function stepText(e) {
+  const r = x => pretty(x || "");
+  switch (e.type) {
+    case "start": return `Start: the team gets the job "${String(e.task).split("#")[0]}".`;
+    case "stage_start": return `${r(e.role)} starts working.`;
+    case "stage_end": return e.result === "next" ? `${r(e.role)} finished their part.` : `${r(e.role)} was not happy: ${r(e.result)}.`;
+    case "handoff": return `Work passes from ${r(e.from)} to ${r(e.to)}.`;
+    case "reject": case "fail": return `${r(e.from)} sends the work back to ${r(e.to)}.`;
+    case "search": return e.ran === false || (e.ran === undefined && !SEARCH_ON) ? `${r(e.role)} would search the web, but search is off.` : `${r(e.role)} searches the web.`;
+    case "route": return `The router sends the job to ${r(e.to)}.`;
+    case "decision": return `Decision: ${r(e.picked || e.winner || "")} is chosen.`;
+    case "done": return `Hidden tests: ${fmt(e.score)} passed. ${e.score >= 1 ? "All checks passed!" : "Some checks failed."}`;
+    default: return r(e.type);
+  }
+}
+$("step").addEventListener("click", () => { stopReplay(); if (qi >= queue.length) loadTask();
+  if (qi < queue.length) { const e = queue[qi++]; const before = $("log").children.length; apply(e);
+    let t = stepText(e); t = t.charAt(0).toUpperCase() + t.slice(1); if ($("log").children.length === before) log(t); say(`${qi}/${queue.length} · ${t}`, {interrupt: true, hold: 6000}); } });
 $("taskSel").addEventListener("change", () => { $("taskSel").dataset.task = $("taskSel").value; loadTask(); });
 
 // ---------------------------------------------------------------- the guided tour (your 1-minute video in one take)
