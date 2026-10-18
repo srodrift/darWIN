@@ -157,6 +157,7 @@ pre.code .ctx{color:#9aa0a6;display:block}
   <button id="overview" class="b" aria-keyshortcuts="O">Overview</button>
   <button id="examBtn" class="b" aria-keyshortcuts="F">Final exam</button>
   <button id="voice" class="b" aria-pressed="false" aria-keyshortcuts="N">🔈 Narration off</button>
+  <button id="music" class="b" aria-pressed="false" aria-keyshortcuts="M">♪ Music off</button>
   <span class="seg" role="group" aria-label="Audience">
     <button id="mStory" aria-pressed="true" aria-keyshortcuts="E">Story</button>
     <button id="mTech" aria-pressed="false" aria-keyshortcuts="E">Explain</button>
@@ -300,6 +301,50 @@ function rootOf(name) { let n = byName[name], guard = 0; while (n && n.parent &&
 function accentOf(name) { const r = String(rootOf(name)).toLowerCase(); for (const [k, c] of ORG_ACCENT) if (r.includes(k)) return c; return "#8155E8"; }
 function tintOf(name, mix) { const c = parseInt(accentOf(name).slice(1), 16); const m = (v) => Math.round(v + (255 - v) * mix);
   return (m(c >> 16 & 255) << 16) | (m(c >> 8 & 255) << 8) | m(c & 255); }
+// ---------------------------------------------------------------- ambient music
+// Original, generated live with Web Audio (no audio files): a slow, soft chord pad that ducks under narration.
+const MUSIC = {ctx: null, master: null, on: false, timer: 0};
+function musicStart() {
+  const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return false;
+  if (!MUSIC.ctx) {
+    const ctx = MUSIC.ctx = new AC(), master = MUSIC.master = ctx.createGain(); master.gain.value = 0;
+    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1400; lp.Q.value = 0.4;
+    const len = ctx.sampleRate * 3.2, ir = ctx.createBuffer(2, len, ctx.sampleRate);   // soft synthetic reverb
+    for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+    const verb = ctx.createConvolver(); verb.buffer = ir; const wet = ctx.createGain(); wet.gain.value = 0.55;
+    lp.connect(master); lp.connect(verb); verb.connect(wet); wet.connect(master); master.connect(ctx.destination); MUSIC.bus = lp;
+    // Cmaj9 → Am9 → Fmaj7#11 → G6sus: warm, hopeful, unresolved
+    MUSIC.chords = [[48, 55, 64, 71, 74], [45, 52, 60, 67, 71], [41, 48, 57, 64, 71], [43, 50, 59, 64, 69]]; MUSIC.i = 0;
+  }
+  MUSIC.ctx.resume();
+  const play = () => {
+    const ctx = MUSIC.ctx, t = ctx.currentTime, ch = MUSIC.chords[MUSIC.i++ % MUSIC.chords.length], dur = 8;
+    ch.forEach((n, k) => {
+      const f = 440 * Math.pow(2, (n - 69) / 12);
+      for (const det of [-4, 4]) {
+        const o = ctx.createOscillator(), g = ctx.createGain(); o.type = k === 0 ? "sine" : "triangle"; o.frequency.value = f; o.detune.value = det;
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime((k === 0 ? 0.09 : 0.045), t + 2.6); g.gain.linearRampToValueAtTime(0, t + dur + 2.5);
+        o.connect(g); g.connect(MUSIC.bus); o.start(t); o.stop(t + dur + 2.6);
+      }
+    });
+    // a quiet bell on top, picked from the chord
+    const bn = ch[2 + Math.floor(Math.random() * 3)] + 12, b = ctx.createOscillator(), bg = ctx.createGain();
+    b.type = "sine"; b.frequency.value = 440 * Math.pow(2, (bn - 69) / 12);
+    bg.gain.setValueAtTime(0, t + 1.5); bg.gain.linearRampToValueAtTime(0.03, t + 1.55); bg.gain.exponentialRampToValueAtTime(0.0001, t + 6);
+    b.connect(bg); bg.connect(MUSIC.bus); b.start(t + 1.5); b.stop(t + 6.2);
+  };
+  play(); MUSIC.timer = setInterval(play, 8000);
+  return true;
+}
+function musicStop() { clearInterval(MUSIC.timer); MUSIC.timer = 0; if (MUSIC.master) MUSIC.master.gain.setTargetAtTime(0, MUSIC.ctx.currentTime, 0.4); setTimeout(() => { if (!MUSIC.on && MUSIC.ctx) MUSIC.ctx.suspend(); }, 2000); }
+setInterval(() => { if (!MUSIC.on || !MUSIC.master) return;   // duck under narration
+  MUSIC.master.gain.setTargetAtTime(speaking() ? 0.28 : 0.85, MUSIC.ctx.currentTime, 0.35); }, 250);
+$("music").addEventListener("click", () => {
+  MUSIC.on = !MUSIC.on;
+  if (MUSIC.on && !musicStart()) MUSIC.on = false;
+  if (!MUSIC.on) musicStop();
+  $("music").setAttribute("aria-pressed", MUSIC.on); $("music").textContent = MUSIC.on ? "♪ Music on" : "♪ Music off";
+});
 // ---------------------------------------------------------------- Ask Darwin
 function onApi() { $("askMeta").textContent = API.ask ? `Nemotron on Crusoe${API.search ? " · You.com search on" : ""}` : "";
   if (API.tts && voiceOn === false) $("voice").title = "Narration uses ElevenLabs"; }
@@ -1135,6 +1180,7 @@ addEventListener("keydown", e => {
   else if (e.key === "o" || e.key === "O") { stopTour(); flyTo(W.overview); }
   else if (e.key === "f" || e.key === "F") $("examBtn").click();
   else if (e.key === "n" || e.key === "N") $("voice").click();
+  else if (e.key === "m" || e.key === "M") $("music").click();
   else if (e.key === "e" || e.key === "E") setMode(MODE === "story" ? "explain" : "story");
   else if (e.key === " " && document.activeElement.tagName !== "BUTTON") { e.preventDefault(); play(); }
   else if (e.key === "Escape") { stopTour(); stopReplay(); }
