@@ -245,7 +245,7 @@ def cmd_serve(a):
         run_dir = max(dirs, key=lambda d: len(glob.glob(os.path.join(d, "orgs", "*"))))
     data = viewer._load_run(run_dir)
     page = viewer.build(run_dir, data=data)
-    el_key = os.environ.get("ELEVENLABS_API_KEY")
+    el_key = os.environ.get("ELEVENLABS_API_KEY") or os.environ.get("ELEVEN_LABS_API_KEY")
     voice = os.environ.get("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
     status = {"ask": bool(os.environ.get("CRUSOE_API_KEY")) or llm.MOCK, "tts": bool(el_key), "search": search.available()}
 
@@ -289,6 +289,7 @@ def cmd_serve(a):
                                       json={"text": str(b.get("text", ""))[:700],
                                             "model_id": os.environ.get("ELEVENLABS_MODEL", "eleven_multilingual_v2")}, timeout=40)
                     if r.status_code != 200:
+                        print(f"  ElevenLabs error {r.status_code}: {r.text[:200]}  (falling back to the browser voice)")
                         return self._send(502, {"error": f"elevenlabs {r.status_code}: {r.text[:200]}"})
                     return self._send(200, r.content, "audio/mpeg")
                 self._send(404, {"error": "not found"})
@@ -301,6 +302,8 @@ def cmd_serve(a):
     print(f"Darwin HQ: http://localhost:{a.port}   (run: {os.path.basename(run_dir)})")
     print(f"  Ask Darwin: {'on (Nemotron on Crusoe)' if status['ask'] else 'off (no CRUSOE_API_KEY)'}"
           f" · You.com search: {'on' if status['search'] else 'off'} · ElevenLabs voice: {'on' if status['tts'] else 'off'}")
+    if not el_key and os.environ.get("ELEVENLABS_VOICE_ID"):
+        print("  note: ELEVENLABS_VOICE_ID is set but no ELEVENLABS_API_KEY was found in .env")
     print("  Ctrl+C to stop.")
     try:
         srv.serve_forever()
